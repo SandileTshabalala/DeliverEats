@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.npm
+.pnpm-debug.log*
+
+# Docker & IDE
+.dockerignore
+.git
+.gitignore
+.vscode
+.idea
+.windsurf

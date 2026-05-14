@@ -1,0 +1,20 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy only dependency files first (for layer caching)
+COPY package.json pnpm-lock.yaml ./
+
+# Install pnpm
+RUN npm install -g pnpm
+
+# Install deps (this installs rollup correctly)
+RUN pnpm install --frozen-lockfile
+
+# Copy the rest of the client
+COPY . .
+
+EXPOSE 5173
+
+# Run Vite dev server
+CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0"]

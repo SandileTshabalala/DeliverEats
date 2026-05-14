@@ -1,0 +1,80 @@
+# -------------------------
+# Core framework
+# -------------------------
+fastapi
+uvicorn[standard]
+gunicorn
+
+# -------------------------
+# Database (PostgreSQL)
+# -------------------------
+sqlalchemy
+psycopg2-binary
+alembic
+
+# -------------------------
+# Validation & settings
+# -------------------------
+pydantic
+pydantic-settings
+python-dotenv
+
+# -------------------------
+# Authentication & security
+# -------------------------
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt
+cryptography
+# -------------------------
+# Redis & caching
+# -------------------------
+redis
+hiredis
+
+# -------------------------
+# Background jobs
+# -------------------------
+celery
+
+# -------------------------
+# WebSockets & realtime
+# -------------------------
+websockets
+
+# -------------------------
+# HTTP client (payments, webhooks)
+# -------------------------
+httpx
+requests
+
+# -------------------------
+# Payment gateways
+# -------------------------
+stripe
+
+# -------------------------
+# Utilities
+# -------------------------
+python-multipart
+email-validator
+orjson
+
+# -------------------------
+# Logging & monitoring
+# -------------------------
+structlog
+
+# -------------------------
+# Testing (optional in prod)
+# -------------------------
+pytest
+pytest-asyncio
+
+# -------------------------
+# Additional features for scalability and performance
+# -------------------------
+slowapi #Rate limiting	
+sentry-sdk #Monitoring	
+aioredis #WebSockets scaling	
+geoalchemy2 #Geo queries	
