@@ -35,6 +35,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.addresses import router as addresses_router
 from app.routers.billing import router as billing_router
 from app.routers.manage import router as manage_router
+from app.routers.platform import router as platform_router
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
@@ -80,6 +81,13 @@ async def lifespan(app: FastAPI):
                 connection.execute(text(
                     "CREATE INDEX IF NOT EXISTS ix_drivers_restaurant_id ON drivers (restaurant_id)"
                 ))
+            # Values added to the Python enums after the database types were first
+            # created. Without them Postgres rejects the value: accepting an order
+            # when no driver is free ("waiting for driver") failed with a 500, and
+            # so did the job that cancels stale orders.
+            with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+                connection.execute(text("ALTER TYPE order_status_enum ADD VALUE IF NOT EXISTS 'WAITING_FOR_DRIVER'"))
+                connection.execute(text("ALTER TYPE role_enum ADD VALUE IF NOT EXISTS 'ADMIN'"))
         logger.info("Database tables verified/created")
 
         # Route handlers running in worker threads push websocket events through this loop
@@ -147,6 +155,12 @@ app.include_router(customer_router, prefix="/api/v1/customer", tags=["Customer"]
 app.include_router(addresses_router, prefix="/api/v1", tags=["Addresses"])
 app.include_router(billing_router, prefix="/api/v1")
 app.include_router(manage_router, prefix="/api/v1")
+app.include_router(platform_router, prefix="/api/v1")
+
+# Uploaded restaurant logos
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from app.services.uploads import PUBLIC_PREFIX, upload_root  # noqa: E402
+app.mount(PUBLIC_PREFIX, StaticFiles(directory=upload_root()), name="uploads")
 
 # setup_logging() 
 

@@ -1,82 +1,62 @@
+"""
+One-off setup:  python -m app.db.init_db
+
+Creates the tables and the FIRST platform owner account, taken from the
+environment (ADMIN_EMAIL, ADMIN_PASSWORD, ...). There is deliberately no
+built-in account: the old version created admin@lvovo.com / admin123, a login
+anyone reading the code could use.
+"""
 import sys
-import os
 
-# Add the server directory to Python path
-server_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-sys.path.insert(0, server_dir)
-
-# Import directly to avoid circular imports
-from app.db.session import engine, SessionLocal
-from app.db.base import Base
-from app.core.security import hash_password
+from app.core.config import settings
 from app.core.roles import Role
+from app.core.security import hash_password
+from app.db.base import Base
+from app.db.session import SessionLocal, engine
+import app.models  # noqa: F401  (registers every table)
 from app.models.user import User
-from sqlalchemy.orm import Session
+from app.services.payment_service import ensure_default_payment_providers
 
-def init_db():
-    """Initialize database with tables and initial data"""
-    # Create all tables
+
+def init_db() -> int:
     Base.metadata.create_all(bind=engine)
-    
-    # Create a session
-    db = Session(engine)
-    
+
+    db = SessionLocal()
     try:
-        # Check if super admin exists
-        super_admin = db.query(User).filter(User.role == Role.SUPER_ADMIN).first()
-        
-        if not super_admin:
-            # Create initial super admin with shorter password
-            admin_user = User(
-                name="Super",
-                sur_name="Admin",
-                email="admin@lvovo.com",
-                password_hash=hash_password("admin123"),  # Short password to avoid bcrypt limit
-                contact_number="+1234567890",
-                role=Role.SUPER_ADMIN,
-                is_active=True
-            )
-            
-            db.add(admin_user)
-            db.commit()
-            print("Super admin created successfully")
-        else:
-            print("Super admin already exists")
-            
-        # Seed default payment providers
-        from app.models.payment_provider import PaymentProvider
-        
-        defaults = [
-            {
-                "provider_name": "cash_delivery",
-                "display_name": "Cash on Delivery",
-                "enabled": True,
-                "is_active": True,
-                "config": {}
-            },
-            {
-                "provider_name": "card_delivery",
-                "display_name": "Card on Delivery",
-                "enabled": True,
-                "is_active": True,
-                "config": {}
-            }
-        ]
-        
-        for p in defaults:
-            exists = db.query(PaymentProvider).filter(PaymentProvider.provider_name == p["provider_name"]).first()
-            if not exists:
-                new_p = PaymentProvider(**p)
-                db.add(new_p)
-                print(f"Seeded provider: {p['display_name']}")
-        
+        ensure_default_payment_providers(db)
+
+        if db.query(User).filter(User.role == Role.SUPER_ADMIN).first():
+            print("A platform owner account already exists. Nothing to do.")
+            return 0
+
+        missing = [name for name in ("ADMIN_EMAIL", "ADMIN_PASSWORD", "ADMIN_CONTACT_NUMBER") if not getattr(settings, name)]
+        if missing:
+            print("Cannot create the platform owner account. Set these in the env file first: " + ", ".join(missing))
+            return 1
+        if len(settings.ADMIN_PASSWORD) < 12:
+            print("ADMIN_PASSWORD must be at least 12 characters.")
+            return 1
+
+        db.add(User(
+            name=settings.ADMIN_NAME,
+            sur_name=settings.ADMIN_SURNAME,
+            email=settings.ADMIN_EMAIL.strip().lower(),
+            password_hash=hash_password(settings.ADMIN_PASSWORD),
+            contact_number=settings.ADMIN_CONTACT_NUMBER,
+            role=Role.SUPER_ADMIN,
+            is_active=True,
+        ))
         db.commit()
-            
-    except Exception as e:
-        print(f"Error initializing database: {e}")
+        print(f"Platform owner account created for {settings.ADMIN_EMAIL}. "
+              "You can now remove ADMIN_PASSWORD from the env file.")
+        return 0
+    except Exception as exc:
         db.rollback()
+        print(f"Error initializing database: {exc}")
+        return 1
     finally:
         db.close()
 
+
 if __name__ == "__main__":
-    init_db()
+    sys.exit(init_db())

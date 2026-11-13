@@ -40,6 +40,12 @@ async def update_user(db: Session, user_id: str, update_data: dict):
     if not user:
         return None
     
+    new_email = update_data.get("email")
+    if new_email and new_email != user.email:
+        if db.query(User).filter(User.email == new_email, User.id != user_id).first():
+            from fastapi import HTTPException
+            raise HTTPException(status_code=400, detail="That email address is already used by another account")
+
     # Update fields
     for key, value in update_data.items():
         if hasattr(user, key) and value is not None:

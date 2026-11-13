@@ -13,6 +13,7 @@ import {
   Utensils
 } from 'lucide-react';
 import { Roles } from '../utils/roles';
+import { usePublicStats } from '../hooks/usePublicStats';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -26,6 +27,14 @@ const Register = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Real counters from the server; nothing is shown until there is something true to show
+  const publicStats = usePublicStats();
+  const liveNumbers = publicStats && publicStats.restaurants > 0
+    ? [
+      { label: String(publicStats.restaurants), sub: publicStats.restaurants === 1 ? "Local kitchen" : "Local kitchens" },
+      { label: String(publicStats.orders_delivered), sub: "Orders delivered" },
+    ]
+    : [];
   const { registerUser } = useAuth();
   const navigate = useNavigate();
 
@@ -84,10 +93,7 @@ const Register = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-6 pt-8">
-            {[
-              { label: "10k+", sub: "Happy Customers" },
-              { label: "50+", sub: "Local Vendors" }
-            ].map((stat, i) => (
+            {liveNumbers.map((stat, i) => (
               <div key={i} className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-xl">
                 <p className="text-3xl font-black leading-none mb-1">{stat.label}</p>
                 <p className="text-brand-100/60 text-xs font-bold uppercase tracking-widest">{stat.sub}</p>

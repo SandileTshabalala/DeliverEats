@@ -53,6 +53,17 @@ class Settings(BaseSettings):
     # Each restaurant sets its real fee, flat or per km, in its settings screen.
     DELIVERY_FEE: float = 0.0
 
+    # Where uploaded images (restaurant logos) are stored
+    UPLOAD_DIR: str = "uploads"
+
+    # First platform owner account, created by `python -m app.db.init_db`.
+    # No defaults on purpose: there must never be a built-in login.
+    ADMIN_EMAIL: str | None = None
+    ADMIN_PASSWORD: str | None = None
+    ADMIN_NAME: str = "Platform"
+    ADMIN_SURNAME: str = "Owner"
+    ADMIN_CONTACT_NUMBER: str | None = None
+
     # Name used in SMS and email
     APP_NAME: str = "L'vovo"
 

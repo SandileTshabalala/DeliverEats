@@ -28,6 +28,7 @@ os.environ.update({
     "PAYFAST_SANDBOX": "true",
     "SUBSCRIPTIONS_ENFORCED": "true",
     "SUBSCRIPTION_GRACE_DAYS": "5",
+    "UPLOAD_DIR": os.path.join(tempfile.mkdtemp(prefix="lvovo-uploads-"), "uploads"),
     "RATE_LIMIT_DEFAULT": "100000",
     "RATE_LIMIT_AUTH": "100000",
     "RATE_LIMIT_AUTHENTICATED": "100000",

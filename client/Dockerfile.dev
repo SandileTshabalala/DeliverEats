@@ -17,4 +17,6 @@ COPY . .
 EXPOSE 5173
 
 # Run Vite dev server
-CMD ["pnpm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Call vite directly: "pnpm run dev -- --host" passed a literal "--" to vite,
+# which then ignored --host and listened only inside the container.
+CMD ["pnpm", "exec", "vite", "--host", "0.0.0.0"]

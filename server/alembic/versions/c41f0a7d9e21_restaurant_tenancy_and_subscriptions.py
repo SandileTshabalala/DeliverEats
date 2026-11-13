@@ -4,6 +4,7 @@ Revision ID: c41f0a7d9e21
 Revises: 1864f03ae64a
 Create Date: 2026-11-13
 
+- order_status_enum / role_enum: add values the code already used
 - drivers.restaurant_id: drivers now belong to a restaurant
 - restaurant_payment_settings: how each restaurant gets paid
 - restaurant_delivery_settings: what each restaurant charges for delivery
@@ -26,6 +27,12 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     inspector = sa.inspect(op.get_bind())
     tables = set(inspector.get_table_names())
+
+    # Enum values the code uses but the database types never received.
+    # ADD VALUE cannot run inside a transaction block on older Postgres versions.
+    with op.get_context().autocommit_block():
+        op.execute("ALTER TYPE order_status_enum ADD VALUE IF NOT EXISTS 'WAITING_FOR_DRIVER'")
+        op.execute("ALTER TYPE role_enum ADD VALUE IF NOT EXISTS 'ADMIN'")
 
     if 'restaurant_id' not in {c['name'] for c in inspector.get_columns('drivers')}:
         op.add_column('drivers', sa.Column('restaurant_id', sa.String(), nullable=True))

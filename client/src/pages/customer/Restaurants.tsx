@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { assetUrl } from '../../services/platform';
 import {
     Search,
     MapPin,
@@ -125,7 +126,7 @@ const Restaurants = () => {
                             <div className="h-52 bg-gray-800 relative overflow-hidden flex items-center justify-center">
                                 {res.logo_img_url ? (
                                     <img
-                                        src={res.logo_img_url}
+                                        src={assetUrl(res.logo_img_url)}
                                         alt={res.name}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                     />

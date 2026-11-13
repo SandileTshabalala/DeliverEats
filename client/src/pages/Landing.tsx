@@ -11,8 +11,10 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import images from '../constant/images';
+import { usePublicStats } from '../hooks/usePublicStats';
 
 const Landing = () => {
+    const publicStats = usePublicStats();
     return (
         <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-brand-500/30 overflow-x-hidden">
             {/* Navigation */}
@@ -105,14 +107,12 @@ const Landing = () => {
                             <span>Start Your Order</span>
                             <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
                         </Link>
-                        <div className="flex -space-x-4 items-center">
-                            {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="w-12 h-12 rounded-full border-4 border-gray-950 bg-gray-800 overflow-hidden shadow-2xl">
-                                    <div className="w-full h-full bg-brand-600/20 flex items-center justify-center text-[10px] font-black">USER</div>
-                                </div>
-                            ))}
-                            <span className="ml-8 text-xs font-black uppercase tracking-widest text-white">Loved by 2k+ Daily</span>
-                        </div>
+                        {publicStats && publicStats.restaurants > 0 && (
+                            <span className="text-xs font-black uppercase tracking-widest text-white">
+                                {publicStats.restaurants} local {publicStats.restaurants === 1 ? 'kitchen' : 'kitchens'}
+                                {publicStats.orders_delivered > 0 && ` · ${publicStats.orders_delivered} orders delivered`}
+                            </span>
+                        )}
                     </motion.div>
                 </div>
 

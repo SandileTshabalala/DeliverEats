@@ -26,3 +26,16 @@ class Driver(Base):
     # relationships
     user = relationship("User", back_populates="driver")
     orders = relationship("Order", back_populates="driver")
+
+    # The person behind the driver profile (drivers share their id with their user)
+    @property
+    def name(self):
+        return self.user.name if self.user else None
+
+    @property
+    def sur_name(self):
+        return self.user.sur_name if self.user else None
+
+    @property
+    def contact_number(self):
+        return self.user.contact_number if self.user else None

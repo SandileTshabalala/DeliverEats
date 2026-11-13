@@ -1,7 +1,8 @@
-from sqlalchemy import or_
+from sqlalchemy import and_, exists, or_
 from sqlalchemy.orm import Session
 from app.models.driver import Driver
 from app.models.order import Order
+from app.models.user import User
 from app.core.redis import redis_client
 from app.utils.OrderStatus import OrderStatus
 from datetime import datetime, timezone
@@ -80,6 +81,26 @@ def restaurant_driver_filter(restaurant_id):
     return or_(Driver.restaurant_id == restaurant_id, Driver.restaurant_id.is_(None))
 
 
+def driver_can_take_a_job():
+    """
+    Online, still an active account, and not already on a delivery.
+
+    `is_available` means ONLINE: it is the driver's own switch and nothing else
+    changes it. Whether they are busy is worked out from their orders. (These
+    used to be one flag: getting a delivery switched the driver "offline", so
+    the app showed "Go Online" in the middle of a job and the button failed.)
+    """
+    on_a_delivery = exists().where(
+        Order.driver_id == Driver.id,
+        Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED]),
+    )
+    return and_(
+        Driver.is_available == True,
+        Driver.user.has(User.is_active == True),
+        ~on_a_delivery,
+    )
+
+
 def get_available_driver(db: Session, restaurant_id: str = None):
     """
     Select the fairest available driver:
@@ -90,7 +111,7 @@ def get_available_driver(db: Session, restaurant_id: str = None):
 
     driver = (
         db.query(Driver)
-        .filter(Driver.is_available == True, restaurant_driver_filter(restaurant_id))
+        .filter(driver_can_take_a_job(), restaurant_driver_filter(restaurant_id))
         # the restaurant's own drivers first, then whoever has waited longest
         .order_by(Driver.restaurant_id.is_(None).asc(), Driver.last_assigned_at.asc().nullsfirst())
         .with_for_update(skip_locked=True)
@@ -100,8 +121,8 @@ def get_available_driver(db: Session, restaurant_id: str = None):
     if not driver:
         return None
 
-    # Mark driver busy immediately
-    driver.is_available = False
+    # The row lock above reserves the driver until the caller links the order.
+    # Being on that order is what makes them busy; they stay online.
     driver.last_assigned_at = datetime.now(timezone.utc)
 
     db.flush()  # reserve driver before commit

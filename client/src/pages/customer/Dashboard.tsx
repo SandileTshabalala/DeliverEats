@@ -13,6 +13,7 @@ import {
 import { Link } from 'react-router-dom';
 import { restaurantService, type Restaurant } from '../../services/restaurant';
 import { toast } from 'react-hot-toast';
+import { assetUrl } from '../../services/platform';
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
 
@@ -99,13 +100,8 @@ const Dashboard = () => {
                         transition={{ delay: 0.3 }}
                         className="flex items-center space-x-4 pt-4"
                     >
-                        <div className="flex -space-x-3">
-                            {[1, 2, 3, 4].map(i => (
-                                <div key={i} className="w-10 h-10 rounded-full border-2 border-gray-950 bg-gray-800"></div>
-                            ))}
-                        </div>
                         <p className="text-sm font-bold text-gray-400">
-                            <span className="text-white">2.4k+</span> reviews this month
+                            <span className="text-white">{restaurants.length}</span> {restaurants.length === 1 ? 'kitchen' : 'kitchens'} taking orders right now
                         </p>
                     </motion.div>
                 </div>
@@ -174,7 +170,7 @@ const Dashboard = () => {
                                     <div className="h-48 bg-gray-800 relative overflow-hidden flex items-center justify-center">
                                         {res.logo_img_url ? (
                                             <img
-                                                src={res.logo_img_url}
+                                                src={assetUrl(res.logo_img_url)}
                                                 alt={res.name}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                             />
@@ -198,7 +194,7 @@ const Dashboard = () => {
                                             <div className="flex items-center space-x-4">
                                                 <div className="flex items-center space-x-2 text-gray-500">
                                                     <Clock size={14} className="text-brand-500" />
-                                                    <span className="text-xs font-bold uppercase tracking-wider">25 min</span>
+                                                    <span className="text-xs font-bold uppercase tracking-wider">Open now</span>
                                                 </div>
                                                 <div className="flex items-center space-x-2 text-gray-500">
                                                     <MapPin size={14} className="text-brand-500" />

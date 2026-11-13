@@ -1,7 +1,7 @@
 from math import radians, cos, sin, asin, sqrt
 from sqlalchemy.orm import Session
 from app.models.driver import Driver
-from app.services.driver_service import restaurant_driver_filter
+from app.services.driver_service import driver_can_take_a_job, restaurant_driver_filter
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -25,7 +25,7 @@ def assign_nearest_driver(db: Session, order_lat: float, order_lng: float, resta
     """
     # Get all available drivers with location data
     available_drivers = db.query(Driver).filter(
-        Driver.is_available == True,
+        driver_can_take_a_job(),
         restaurant_driver_filter(restaurant_id),
         Driver.latitude.isnot(None),
         Driver.longitude.isnot(None)

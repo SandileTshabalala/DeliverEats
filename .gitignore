@@ -8,3 +8,4 @@ server/.env.dev
 server/.env.prod
 client/.env.dev
 client/.env.prod
+server/uploads/

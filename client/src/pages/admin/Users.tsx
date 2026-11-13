@@ -19,7 +19,7 @@ import { clsx } from 'clsx';
 import AddDriverModal from '../../components/admin/AddDriverModal';
 import AddRestaurantModal from '../../components/admin/AddRestaurantModal';
 import AddAdminModal from '../../components/admin/AddAdminModal';
-import { Truck, Store } from 'lucide-react';
+import { Store } from 'lucide-react';
 
 const Users = () => {
     const [users, setUsers] = useState<AdminUser[]>([]);
@@ -94,16 +94,6 @@ const Users = () => {
                         <>
                             <div className="fixed inset-0 z-40" onClick={() => setIsAddMenuOpen(false)}></div>
                             <div className="absolute right-0 mt-2 w-56 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in duration-200">
-                                <button
-                                    onClick={() => { setActiveModal('driver'); setIsAddMenuOpen(false); }}
-                                    className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                                >
-                                    <Truck size={18} className="text-brand-500" />
-                                    <div className="text-left">
-                                        <p className="font-bold">New Driver</p>
-                                        <p className="text-[10px] text-gray-500">Create driver & profile</p>
-                                    </div>
-                                </button>
                                 <button
                                     onClick={() => { setActiveModal('restaurant'); setIsAddMenuOpen(false); }}
                                     className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"

@@ -14,6 +14,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { useOrderWebSocket } from '../../hooks/useOrderWebSocket';
+import { orderRef, fullName, phoneHref } from '../../services/orders';
+import type { OrderPerson } from '../../services/orders';
 
 interface OrderItem {
     id: string;
@@ -33,6 +35,8 @@ interface Order {
     items: OrderItem[];
     /** unpaid | pay_on_delivery | pending | completed | failed */
     payment_status?: string;
+    restaurant_name?: string;
+    driver?: OrderPerson | null;
     // restaurant: { name: string }; // Assuming backend expands restaurant relation
 }
 
@@ -206,7 +210,7 @@ const Orders = () => {
                                     <div className="space-y-1">
                                         <div className="flex items-center space-x-3">
                                             <h3 className="text-xl font-black uppercase tracking-tight italic group-hover:text-brand-500 transition-colors">
-                                                Order #{order.id?.slice(0, 8) || 'N/A'}
+                                                {order.restaurant_name || 'Order'} <span className="text-gray-500">{orderRef(order.id)}</span>
                                             </h3>
                                             <span className={clsx(
                                                 "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border flex items-center space-x-2",
@@ -229,6 +233,16 @@ const Orders = () => {
                                             <span className="w-1 h-1 rounded-full bg-gray-800 font-normal">•</span>
                                             <span className="font-normal">{new Date(order.created_at || Date.now()).toLocaleDateString()}</span>
                                         </div>
+                                        {order.driver && !['delivered', 'cancelled'].includes(order.status) && (
+                                            <p className="text-sm text-gray-400">
+                                                Your driver: <span className="text-white font-bold">{fullName(order.driver) || 'Assigned'}</span>
+                                                {order.driver.contact_number && (
+                                                    <a href={phoneHref(order.driver.contact_number)} onClick={event => event.stopPropagation()} className="ml-2 text-brand-500 font-bold hover:text-brand-400">
+                                                        Call {order.driver.contact_number}
+                                                    </a>
+                                                )}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 

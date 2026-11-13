@@ -208,6 +208,7 @@ def rate_limit(
 AUTH_PATHS = (
     "/api/v1/auth/login", "/api/v1/auth/register",
     "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
+    "/api/v1/auth/change-password",
 )
 # Called by PayFast's servers, never by browsers: must not be throttled
 WEBHOOK_PATHS = ("/api/v1/payments/payfast/notify", "/api/v1/billing/payfast/notify")

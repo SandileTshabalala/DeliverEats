@@ -8,7 +8,10 @@ import {
     UtensilsCrossed,
     CheckCircle2
 } from 'lucide-react';
-import { orderService } from '../../services/orders';
+import { orderService, orderRef } from '../../services/orders';
+import { platform } from '../../services/platform';
+import type { RestaurantStats } from '../../services/platform';
+import { formatRand } from '../../context/CartContext';
 import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
@@ -16,6 +19,7 @@ import { motion } from 'framer-motion';
 const RestaurantDashboard = () => {
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [numbers, setNumbers] = useState<RestaurantStats | null>(null);
 
     useEffect(() => {
         fetchDashboardData();
@@ -24,8 +28,9 @@ const RestaurantDashboard = () => {
     const fetchDashboardData = async () => {
         try {
             setLoading(true);
-            const ordersData = await orderService.getRestaurantOrders();
+            const [ordersData, statsData] = await Promise.all([orderService.getRestaurantOrders(), platform.restaurantStats()]);
             setOrders(ordersData);
+            setNumbers(statsData);
         } catch (error) {
             toast.error('Failed to load restaurant data');
         } finally {
@@ -42,10 +47,10 @@ const RestaurantDashboard = () => {
     }
 
     const stats = [
-        { label: 'Total Orders', value: orders.length.toString(), icon: ShoppingBag, color: 'text-brand-500', bg: 'bg-brand-500/10' },
-        { label: 'Revenue', value: 'R 8,240', icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/10' },
-        { label: 'Active Menus', value: '14', icon: UtensilsCrossed, color: 'text-brand-500', bg: 'bg-brand-500/10' },
-        { label: 'Rating', value: '4.8', icon: Star, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+        { label: 'Orders today', value: String(numbers?.orders_today ?? 0), icon: ShoppingBag, color: 'text-brand-500', bg: 'bg-brand-500/10' },
+        { label: 'Sales today', value: formatRand(numbers?.sales_today ?? 0), icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/10' },
+        { label: 'Sales this month', value: formatRand(numbers?.sales_this_month ?? 0), icon: Star, color: 'text-green-500', bg: 'bg-green-500/10' },
+        { label: 'Items on the menu', value: String(numbers?.menu_items_available ?? 0), icon: UtensilsCrossed, color: 'text-brand-500', bg: 'bg-brand-500/10' },
     ];
 
     const pendingOrders = orders.filter(o => o.status === 'pending');
@@ -104,7 +109,7 @@ const RestaurantDashboard = () => {
                                 <div key={order.id} className="p-4 bg-gray-900/40 hover:bg-gray-800/40 border border-gray-800 rounded-2xl flex items-center justify-between transition-all group">
                                     <div className="flex items-center space-x-4">
                                         <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-bold text-sm">
-                                            #{order.id.slice(-4)}
+                                            {orderRef(order.id)}
                                         </div>
                                         <div>
                                             <p className="text-sm font-bold text-white">Order from Customer</p>

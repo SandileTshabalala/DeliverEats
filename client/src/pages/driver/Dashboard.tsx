@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import OrderDetailsModal from '../../components/OrderDetailsModal';
+import type { OrderDetails } from '../../components/OrderDetailsModal';
+import { orderRef, fullName, phoneHref } from '../../services/orders';
 import {
     Truck,
     CheckCircle2,
@@ -21,6 +24,7 @@ const DriverDashboard = () => {
     const [isToggling, setIsToggling] = useState(false);
 
     const [statsData, setStatsData] = useState<any>(null);
+    const [viewing, setViewing] = useState<OrderDetails | null>(null);
 
     useEffect(() => {
         fetchInitialData();
@@ -50,9 +54,16 @@ const DriverDashboard = () => {
             setIsToggling(true);
             const result = await driverService.toggleAvailability(!profile.is_available);
             setProfile({ ...profile, is_available: result.is_available });
-            toast.success(`You are now ${result.is_available ? 'online' : 'offline'}`);
-        } catch (error) {
-            toast.error('Failed to update status');
+            if (result.is_available) {
+                toast.success('You are online');
+                // going online can hand you an order that was waiting for a driver
+                setJobs(await driverService.getJobs());
+            } else {
+                toast.success(jobs.length > 0 ? 'You are offline. Finish this delivery; you will get no new jobs.' : 'You are offline');
+            }
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            toast.error(typeof detail === 'string' ? detail : 'Could not change your status. Check your connection and try again.');
         } finally {
             setIsToggling(false);
         }
@@ -64,7 +75,8 @@ const DriverDashboard = () => {
             toast.loading(status === 'picked_up' ? 'Picking up order...' : 'Completing delivery...');
             await driverService.updateOrderStatus(orderId, status);
             toast.dismiss();
-            toast.success("Order updated successfully!");
+            toast.success(status === 'picked_up' ? 'Picked up. Drive safely.' : 'Delivered. Well done.');
+            setViewing(null);
             fetchInitialData(); // Refresh list
         } catch (error: any) {
             console.error('Update status error:', error);
@@ -86,7 +98,7 @@ const DriverDashboard = () => {
         { label: 'Today\'s Deliveries', value: statsData?.today_deliveries || 0, icon: Truck, color: 'text-brand-500', bg: 'bg-brand-500/10' },
         { label: 'Completed', value: statsData?.completed_deliveries || 0, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
         { label: 'Earnings', value: `R ${statsData?.total_earnings?.toFixed(2) || '0.00'}`, icon: TrendingUp, color: 'text-brand-500', bg: 'bg-brand-500/10' },
-        { label: 'Reliability', value: `${statsData?.reliability_score || 0}%`, icon: Clock, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+        { label: 'Deliveries completed', value: `${statsData?.reliability_score || 0}%`, icon: Clock, color: 'text-purple-500', bg: 'bg-purple-500/10' },
     ];
 
     return (
@@ -111,9 +123,13 @@ const DriverDashboard = () => {
                                 {profile?.is_available ? 'You are Online' : 'You are Offline'}
                             </h2>
                             <p className="text-gray-400">
-                                {profile?.is_available
-                                    ? 'Actively receiving delivery requests'
-                                    : 'Toggle to start receiving jobs'}
+                                {jobs.length > 0
+                                    ? (profile?.is_available
+                                        ? 'On a delivery. You get the next job when this one is done.'
+                                        : 'On a delivery. No new jobs after this one.')
+                                    : (profile?.is_available
+                                        ? 'Waiting for the next delivery'
+                                        : 'Go online to start receiving jobs')}
                             </p>
                         </div>
                     </div>
@@ -186,20 +202,34 @@ const DriverDashboard = () => {
                             <div key={job.id} className="p-6 bg-gray-900/40 border border-gray-800 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center space-x-4">
                                     <div className="w-12 h-12 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-500 font-bold">
-                                        #{job.id.slice(-4)}
+                                        {orderRef(job.id).slice(0, 5)}
                                     </div>
                                     <div>
-                                        <p className="font-bold text-white">{job.restaurant_name || 'Restaurant'}</p>
+                                        <p className="font-bold text-white">{job.restaurant_name || 'Restaurant'} <span className="text-xs text-gray-600 font-mono">{orderRef(job.id)}</span></p>
+                                        {job.customer && (
+                                            <p className="text-xs text-gray-400 mt-1">
+                                                {fullName(job.customer) || 'Customer'}
+                                                {job.customer.contact_number && (
+                                                    <a href={phoneHref(job.customer.contact_number)} className="ml-2 text-brand-500 font-bold hover:text-brand-400">
+                                                        Call {job.customer.contact_number}
+                                                    </a>
+                                                )}
+                                            </p>
+                                        )}
                                         <div className="flex items-center text-xs text-gray-500 space-x-2 mt-1">
                                             <MapPin size={12} />
-                                            <span>{job.address?.suburb || '2.4 km away'}</span>
+                                            <span>{job.delivery_address || 'No delivery address'}</span>
                                             <span>•</span>
                                             <span className="uppercase text-brand-500 font-bold">{job.status.replace('_', ' ')}</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div className="flex items-center space-x-3">
-                                    <button className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-bold transition-all">Details</button>
+                                    <button onClick={() => setViewing(job)} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl text-sm font-bold transition-all">Details</button>
+
+                                    {['preparing', 'accepted', 'waiting_for_driver'].includes(job.status) && (
+                                        <span className="px-3 py-2 text-xs font-bold text-gray-500">Kitchen is still preparing</span>
+                                    )}
 
                                     {job.status === 'ready' && (
                                         <button
@@ -224,6 +254,24 @@ const DriverDashboard = () => {
                     </div>
                 )}
             </div>
+            <OrderDetailsModal
+                order={viewing}
+                onClose={() => setViewing(null)}
+                actions={viewing && (
+                    <>
+                        {viewing.status === 'ready' && (
+                            <button onClick={() => handleUpdateStatus(viewing.id, 'picked_up')} className="flex-1 px-4 py-3 bg-brand-500 hover:bg-brand-600 text-black rounded-xl text-sm font-bold">
+                                Pick Up Order
+                            </button>
+                        )}
+                        {viewing.status === 'picked_up' && (
+                            <button onClick={() => handleUpdateStatus(viewing.id, 'delivered')} className="flex-1 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl text-sm font-bold">
+                                Complete Delivery
+                            </button>
+                        )}
+                    </>
+                )}
+            />
         </div>
     );
 };

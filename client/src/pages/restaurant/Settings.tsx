@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Banknote, CreditCard, Globe, CheckCircle2, AlertTriangle, MapPin } from 'lucide-react';
+import { Banknote, CreditCard, Globe, CheckCircle2, AlertTriangle, MapPin, Store, Upload } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { formatRand } from '../../context/CartContext';
@@ -9,6 +9,8 @@ import {
     errorMessage, formatDate, intervalLabel, manage, STATUS_LABEL, STATUS_STYLE,
 } from '../../services/billing';
 import type { BillingOverview, DeliverySettings, PaymentSettings, SubscriptionPayment } from '../../services/billing';
+import { assetUrl, platform, resizeImage } from '../../services/platform';
+import type { RestaurantProfile } from '../../services/platform';
 
 const input = "w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:border-brand-500 outline-none";
 const label = "block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5";
@@ -32,6 +34,10 @@ const Settings = () => {
     // Kept as text while editing so a field can be empty ("no limit")
     const [delivery, setDelivery] = useState({ base_fee: '0', per_km_fee: '0', free_delivery_over: '', max_distance_km: '', latitude: '', longitude: '' });
     const [savingDelivery, setSavingDelivery] = useState(false);
+    const [profile, setProfile] = useState<RestaurantProfile | null>(null);
+    const [savingProfile, setSavingProfile] = useState(false);
+    const [uploadingLogo, setUploadingLogo] = useState(false);
+    const logoInput = useRef<HTMLInputElement>(null);
     const [locating, setLocating] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -48,9 +54,10 @@ const Settings = () => {
 
     const load = useCallback(async () => {
         try {
-            const [overview, paymentSettings, paymentHistory, deliverySettings] = await Promise.all([
-                manage.billing(), manage.paymentSettings(), manage.billingHistory(), manage.deliverySettings(),
+            const [overview, paymentSettings, paymentHistory, deliverySettings, restaurantProfile] = await Promise.all([
+                manage.billing(), manage.paymentSettings(), manage.billingHistory(), manage.deliverySettings(), platform.profile(),
             ]);
+            setProfile(restaurantProfile);
             applyDelivery(deliverySettings);
             setBilling(overview);
             setPayments(paymentSettings);
@@ -93,6 +100,47 @@ const Settings = () => {
             toast.error(errorMessage(error, 'Could not save payment methods'));
         } finally {
             setSaving(false);
+        }
+    };
+
+    const saveProfile = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!profile) return;
+        setSavingProfile(true);
+        try {
+            setProfile(await platform.updateProfile({
+                name: profile.name, address: profile.address, description: profile.description || null,
+            }));
+            toast.success('Restaurant details saved');
+        } catch (error) {
+            toast.error(errorMessage(error, 'Could not save your details'));
+        } finally {
+            setSavingProfile(false);
+        }
+    };
+
+    const chooseLogo = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = ''; // so choosing the same file again still triggers
+        if (!file) return;
+        setUploadingLogo(true);
+        try {
+            // shrink on the phone first: a few tens of KB instead of several MB
+            setProfile(await platform.uploadLogo(await resizeImage(file)));
+            toast.success('Logo updated');
+        } catch (error: any) {
+            toast.error(error?.response ? errorMessage(error, 'Could not upload the logo') : (error?.message || 'Could not upload the logo'));
+        } finally {
+            setUploadingLogo(false);
+        }
+    };
+
+    const removeLogo = async () => {
+        try {
+            setProfile(await platform.removeLogo());
+            toast.success('Logo removed');
+        } catch (error) {
+            toast.error(errorMessage(error, 'Could not remove the logo'));
         }
     };
 
@@ -169,7 +217,7 @@ const Settings = () => {
         <div className="space-y-8 max-w-4xl animate-in fade-in duration-500">
             <div>
                 <h1 className="text-3xl font-bold text-white tracking-tight">Settings</h1>
-                <p className="text-gray-400 mt-1">How customers pay you, your delivery fee, and your plan.</p>
+                <p className="text-gray-400 mt-1">Your restaurant and logo, how customers pay you, your delivery fee, and your plan.</p>
             </div>
 
             {closed && (
@@ -189,6 +237,55 @@ const Settings = () => {
                     <AlertTriangle size={20} className="mt-0.5 flex-shrink-0" />
                     <p className="text-sm">You have used all {subscription.orders_limit} orders on your plan this month, so new orders are paused. Move to a bigger plan to keep taking orders.</p>
                 </div>
+            )}
+
+            {/* Restaurant profile */}
+            {profile && (
+                <form onSubmit={saveProfile} className={card}>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Your restaurant</h2>
+                        <p className="text-sm text-gray-500 mt-1">This is what customers see when they browse.</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-5">
+                        <div className="w-24 h-24 rounded-2xl bg-gray-950 border border-gray-800 overflow-hidden flex items-center justify-center text-gray-700 flex-shrink-0">
+                            {profile.logo_img_url
+                                ? <img src={assetUrl(profile.logo_img_url)} alt={`${profile.name} logo`} className="w-full h-full object-cover" />
+                                : <Store size={36} />}
+                        </div>
+                        <div className="space-y-2">
+                            <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={chooseLogo} />
+                            <div className="flex flex-wrap gap-2">
+                                <button type="button" onClick={() => logoInput.current?.click()} disabled={uploadingLogo} className="flex items-center space-x-2 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-60 text-white font-bold rounded-xl text-sm">
+                                    <Upload size={16} /><span>{uploadingLogo ? 'Uploading...' : profile.logo_img_url ? 'Change logo' : 'Upload logo'}</span>
+                                </button>
+                                {profile.logo_img_url && (
+                                    <button type="button" onClick={removeLogo} className="px-4 py-2.5 text-gray-400 hover:text-red-500 font-bold rounded-xl text-sm">Remove</button>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-600">A square photo or logo works best. PNG or JPG; it is resized for you.</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className={label} htmlFor="shop-name">Restaurant name</label>
+                            <input id="shop-name" required className={input} value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className={label} htmlFor="shop-address">Address</label>
+                            <input id="shop-address" required className={input} value={profile.address} onChange={e => setProfile({ ...profile, address: e.target.value })} />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={label} htmlFor="shop-description">Short description</label>
+                            <input id="shop-description" maxLength={500} className={input} placeholder="What you are known for" value={profile.description ?? ''} onChange={e => setProfile({ ...profile, description: e.target.value })} />
+                        </div>
+                    </div>
+
+                    <button disabled={savingProfile} className="px-6 py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-bold rounded-xl">
+                        {savingProfile ? 'Saving...' : 'Save details'}
+                    </button>
+                </form>
             )}
 
             {/* Payment methods */}

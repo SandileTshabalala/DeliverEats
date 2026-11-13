@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { assetUrl } from '../../services/platform';
 import { useParams, Link } from 'react-router-dom';
 import {
     Utensils,
@@ -85,7 +86,7 @@ const Menu = () => {
                     <div className="flex flex-col md:flex-row md:items-center gap-6">
                         {restaurant?.logo_img_url && (
                             <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-brand-500/20 flex-shrink-0 bg-gray-950">
-                                <img src={restaurant.logo_img_url} alt={restaurant.name} className="w-full h-full object-cover" />
+                                <img src={assetUrl(restaurant.logo_img_url)} alt={restaurant.name} className="w-full h-full object-cover" />
                             </div>
                         )}
                         <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase italic text-white">

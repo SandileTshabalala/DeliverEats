@@ -18,7 +18,7 @@ export const driverService = {
         return res.data;
     },
 
-    toggleAvailability: async (available: boolean): Promise<{ is_available: boolean }> => {
+    toggleAvailability: async (available: boolean): Promise<{ is_available: boolean; on_delivery?: boolean }> => {
         const res = await api.post(`/drivers/availability?available=${available}`);
         return res.data;
     },

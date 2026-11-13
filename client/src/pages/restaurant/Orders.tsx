@@ -7,7 +7,8 @@ import {
     Truck,
     RefreshCcw,
 } from 'lucide-react';
-import { orderService } from '../../services/orders';
+import { orderService, orderRef, fullName, phoneHref } from '../../services/orders';
+import { formatRand } from '../../context/CartContext';
 import type { Order } from '../../services/orders';
 import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
@@ -137,7 +138,7 @@ const RestaurantOrders = () => {
                                 <div className="p-6 border-b border-gray-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="flex items-center space-x-4">
                                         <div className="w-12 h-12 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-500 font-black text-lg">
-                                            #{order.id?.slice(-4).toUpperCase() || 'N/A'}
+                                            {orderRef(order.id)}
                                         </div>
                                         <div>
                                             <p className="text-lg font-bold text-white">Order Details</p>
@@ -149,15 +150,19 @@ const RestaurantOrders = () => {
                                                 <span>•</span>
                                                 <div className="flex items-center space-x-1">
                                                     <User size={12} />
-                                                    {/* <span>Customer ID: {order.customer_id?.slice(0, 8) || 'N/A'}</span> */}
-                                                    <span>Customer Name: {order.customer?.name || 'N/A'}</span>
+                                                    <span>{fullName(order.customer) || 'Customer'}</span>
+                                                    {order.customer?.contact_number && (
+                                                        <a href={phoneHref(order.customer.contact_number)} className="text-brand-500 font-bold hover:text-brand-400">
+                                                            {order.customer.contact_number}
+                                                        </a>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-4">
                                         <div className="text-right">
-                                            <p className="text-xl font-black text-white">R {order.total || 0}</p>
+                                            <p className="text-xl font-black text-white">{formatRand(order.total || 0)}</p>
                                             <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{order.status}</p>
                                         </div>
                                         <div className="h-8 w-px bg-gray-800 hidden md:block"></div>
@@ -202,7 +207,7 @@ const RestaurantOrders = () => {
                                             order.items.map((item: any, idx) => (
                                                 <div key={idx} className="flex justify-between items-center py-1">
                                                     <span className="text-sm text-gray-300"><span className="text-brand-500 font-bold mr-2">{item.quantity}x</span> {item.name || 'Menu Item'}</span>
-                                                    <span className="text-sm font-bold text-white">R {item.price * item.quantity}</span>
+                                                    <span className="text-sm font-bold text-white">{formatRand(Number(item.price) * item.quantity)}</span>
                                                 </div>
                                             ))
                                         ) : (
@@ -210,15 +215,31 @@ const RestaurantOrders = () => {
                                         )}
                                     </div>
 
-                                    {order.driver_id && (
-                                        <div className="mt-6 pt-4 border-t border-gray-800/50 flex items-center justify-between text-xs">
+                                    {order.delivery_address && (
+                                        <p className="mt-4 text-xs text-gray-400">
+                                            <span className="text-gray-500 font-bold uppercase tracking-widest">Deliver to: </span>
+                                            {order.delivery_address}
+                                        </p>
+                                    )}
+
+                                    {order.driver_id ? (
+                                        <div className="mt-6 pt-4 border-t border-gray-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
                                             <div className="flex items-center space-x-2 text-gray-400">
                                                 <Truck size={14} className="text-brand-500" />
-                                                <span>Assigned Driver: </span>
-                                                <span className="text-white font-bold">{order.driver_id?.slice(0, 8) || 'N/A'}</span>
+                                                <span>Driver: </span>
+                                                <span className="text-white font-bold">{fullName(order.driver) || 'Assigned'}</span>
+                                                {order.driver?.vehicle_type && <span className="text-gray-500">({order.driver.vehicle_type})</span>}
                                             </div>
-                                            <span className="text-brand-500 font-bold bg-brand-500/10 px-2 py-0.5 rounded">Contact Driver</span>
+                                            {order.driver?.contact_number && (
+                                                <a href={phoneHref(order.driver.contact_number)} className="text-brand-500 font-bold bg-brand-500/10 hover:bg-brand-500/20 px-3 py-1.5 rounded">
+                                                    Call {order.driver.contact_number}
+                                                </a>
+                                            )}
                                         </div>
+                                    ) : ['waiting_for_driver', 'accepted', 'preparing', 'ready'].includes(order.status) && (
+                                        <p className="mt-6 pt-4 border-t border-gray-800/50 text-xs text-yellow-500 font-bold">
+                                            No driver yet. The order is given to your next driver who goes online.
+                                        </p>
                                     )}
                                 </div>
                             </motion.div>

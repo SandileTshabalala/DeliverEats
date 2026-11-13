@@ -16,8 +16,12 @@ class DriverProfileCreate(BaseModel):
 class DriverRead(BaseModel):
     id: str
     vehicle_type: str
-    vehicle_number: Optional[str]
+    vehicle_number: Optional[str] = None
     is_available: bool
+    # Who the driver is, so the restaurant and the customer can call them
+    name: Optional[str] = None
+    sur_name: Optional[str] = None
+    contact_number: Optional[str] = None
 
     class Config:
         from_attributes = True

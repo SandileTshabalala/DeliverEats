@@ -4,8 +4,6 @@ import {
     LayoutDashboard,
     Users,
     Store,
-    ShoppingBag,
-    Truck,
     Settings,
     CreditCard,
     X
@@ -21,8 +19,6 @@ const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
     { name: 'Users', icon: Users, path: '/admin/users' },
     { name: 'Restaurants', icon: Store, path: '/admin/restaurants' },
-    { name: 'Orders', icon: ShoppingBag, path: '/admin/orders' },
-    { name: 'Drivers', icon: Truck, path: '/admin/drivers' },
     { name: 'Subscriptions', icon: CreditCard, path: '/admin/billing' },
     { name: 'Settings', icon: Settings, path: '/admin/settings' },
 ];

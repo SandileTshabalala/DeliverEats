@@ -102,3 +102,27 @@ def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db
 def reset_password_route(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
     reset_password(db, payload.token, payload.password)
     return {"message": "Your password has been changed. You can sign in now."}
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=200)
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Signed-in user changes their own password (the current one is required)."""
+    from app.core.security import hash_password, verify_password
+
+    user = db.query(User).filter(User.id == current_user.id).first()
+    if not user or not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Your current password is not correct")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=400, detail="Choose a password that is different from the current one")
+    user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password changed"}

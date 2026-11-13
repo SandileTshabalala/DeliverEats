@@ -6,6 +6,7 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session, joinedload, object_session, selectinload
 
 from app.core.config import settings
+from app.models.driver import Driver
 from app.models.menu import Menu
 from app.models.menu_item import MenuItem
 from app.models.order import Order
@@ -15,7 +16,7 @@ from app.models.restaurant import Restaurant
 from app.models.user_address import UserAddress
 from app.services import delivery_fee as delivery_fee_service
 from app.services.delivery_service import assign_nearest_driver
-from app.services.driver_service import get_available_driver, set_driver_availability
+from app.services.driver_service import get_available_driver, on_driver_available
 from app.services.notification_service import send_notification
 from app.utils.OrderStatus import OrderStatus
 from app.utils.PaymentStatus import PaymentStatus
@@ -37,7 +38,7 @@ ALLOWED_TRANSITIONS = {
 
 ORDER_LOAD_OPTIONS = (
     joinedload(Order.customer),
-    joinedload(Order.driver),
+    joinedload(Order.driver).joinedload(Driver.user),
     joinedload(Order.restaurant),
     selectinload(Order.items),
     selectinload(Order.payments).joinedload(Payment.provider),
@@ -263,7 +264,6 @@ def assign_driver(db: Session, order_id: str):
         order.status = OrderStatus.PREPARING
     order.driver_wait_started_at = None
     driver.last_assigned_at = datetime.now(timezone.utc)
-    set_driver_availability(db, driver.id, False)
     db.commit()
 
     shop = order.restaurant.name if order.restaurant else "the restaurant"
@@ -322,7 +322,11 @@ def update_order_status(db: Session, order_id: str, new_status: OrderStatus, ord
 
     # Free the driver once the delivery is finished or called off
     if new_status in {OrderStatus.DELIVERED, OrderStatus.CANCELLED} and order.driver_id:
-        set_driver_availability(db, order.driver_id, True)
+        # The driver is free again. If they are still online, hand them the
+        # next order of their restaurant that is waiting for a driver.
+        finished_driver = db.query(Driver).filter(Driver.id == order.driver_id).first()
+        if finished_driver and finished_driver.is_available:
+            on_driver_available(db, finished_driver)
 
     # Cash / card on delivery is settled the moment the order is handed over
     if new_status == OrderStatus.DELIVERED:

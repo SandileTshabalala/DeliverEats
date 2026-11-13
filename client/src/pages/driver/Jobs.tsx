@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react';
+import OrderDetailsModal from '../../components/OrderDetailsModal';
+import type { OrderDetails } from '../../components/OrderDetailsModal';
+import { orderRef, fullName, phoneHref } from '../../services/orders';
+import { formatRand } from '../../context/CartContext';
 import {
     Truck,
     Search,
@@ -16,6 +20,7 @@ const Jobs = () => {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [viewing, setViewing] = useState<OrderDetails | null>(null);
     const [filter, setFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
 
     useEffect(() => {
@@ -110,20 +115,30 @@ const Jobs = () => {
                                     <div className="flex items-center space-x-4">
                                         <div className={clsx(
                                             "w-12 h-12 rounded-2xl flex items-center justify-center font-bold",
-                                            job.status === 'completed' ? "bg-green-500/10 text-green-500" : "bg-gray-800 text-gray-400"
+                                            job.status === 'delivered' ? "bg-green-500/10 text-green-500" : "bg-gray-800 text-gray-400"
                                         )}>
-                                            {job.status === 'completed' ? <CheckCircle2 size={24} /> : <Truck size={24} />}
+                                            {job.status === 'delivered' ? <CheckCircle2 size={24} /> : <Truck size={24} />}
                                         </div>
                                         <div>
                                             <div className="flex items-center space-x-2">
                                                 <p className="font-bold text-white">{job.restaurant_name || 'Restaurant'}</p>
-                                                <span className="text-xs text-gray-600 font-mono">#{job.id.slice(-6)}</span>
+                                                <span className="text-xs text-gray-600 font-mono">{orderRef(job.id)}</span>
                                             </div>
                                             <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mt-1">
                                                 <div className="flex items-center text-xs text-gray-500 space-x-1">
                                                     <MapPin size={12} className="text-brand-500/50" />
-                                                    <span>{job.delivery_address || 'Address provided on acceptance'}</span>
+                                                    <span>{job.delivery_address || 'No delivery address on this order'}</span>
                                                 </div>
+                                                {job.customer && (
+                                                    <div className="flex items-center text-xs text-gray-500 space-x-2">
+                                                        <span>{fullName(job.customer) || 'Customer'}</span>
+                                                        {job.customer.contact_number && (
+                                                            <a href={phoneHref(job.customer.contact_number)} className="text-brand-500 font-bold hover:text-brand-400">
+                                                                Call {job.customer.contact_number}
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                )}
                                                 <div className="flex items-center text-xs text-gray-500 space-x-1">
                                                     <Calendar size={12} className="text-brand-500/50" />
                                                     <span>{new Date(job.created_at).toLocaleDateString()}</span>
@@ -134,10 +149,10 @@ const Jobs = () => {
 
                                     <div className="flex items-center justify-between md:justify-end gap-4">
                                         <div className="text-right hidden sm:block">
-                                            <p className="text-lg font-bold text-white">R {job.total || '0.00'}</p>
+                                            <p className="text-lg font-bold text-white">{formatRand(job.total || 0)}</p>
                                             <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{job.status}</p>
                                         </div>
-                                        <button className="p-2 text-gray-500 group-hover:text-brand-500 bg-gray-800/50 rounded-xl transition-colors">
+                                        <button aria-label={`View order ${orderRef(job.id)}`} onClick={() => setViewing(job)} className="p-2 text-gray-500 group-hover:text-brand-500 bg-gray-800/50 rounded-xl transition-colors">
                                             <ChevronRight size={24} />
                                         </button>
                                     </div>
@@ -147,6 +162,7 @@ const Jobs = () => {
                     </div>
                 )}
             </div>
+            <OrderDetailsModal order={viewing} onClose={() => setViewing(null)} />
         </div>
     );
 };

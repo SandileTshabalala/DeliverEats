@@ -107,7 +107,7 @@ const Team = () => {
                                 </div>
                                 <div className="flex items-center space-x-3 flex-shrink-0">
                                     <span className={clsx("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border", driver.is_available ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-gray-500/10 text-gray-400 border-gray-500/20")}>
-                                        {driver.is_available ? 'Free' : 'Busy / offline'}
+                                        {driver.is_available ? 'Online' : 'Offline'}
                                     </span>
                                     <button aria-label={`Remove ${driver.name}`} onClick={() => remove('driver', driver)} className="p-2 text-gray-500 hover:text-red-500 rounded-lg"><Trash2 size={16} /></button>
                                 </div>

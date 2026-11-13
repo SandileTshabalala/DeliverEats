@@ -17,6 +17,8 @@ const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Users = lazy(() => import("./pages/admin/Users"));
 const PaymentSettings = lazy(() => import("./pages/admin/PaymentSettings"));
 const AdminBilling = lazy(() => import("./pages/admin/Billing"));
+const AdminRestaurants = lazy(() => import("./pages/admin/Restaurants"));
+const AdminSettings = lazy(() => import("./pages/admin/Settings"));
 const RestaurantDashboard = lazy(() => import("./pages/restaurant/Dashboard"));
 const RestaurantOrders = lazy(() => import("./pages/restaurant/Orders"));
 const RestaurantMenus = lazy(() => import("./pages/restaurant/Menus"));
@@ -87,7 +89,9 @@ export default function AppRouter() {
         <Route path="users" element={<Users />} />
         <Route path="payments" element={<PaymentSettings />} />
         <Route path="billing" element={<AdminBilling />} />
-        <Route path="*" element={<div className="p-8 text-center text-gray-500">Coming Soon</div>} />
+        <Route path="restaurants" element={<AdminRestaurants />} />
+        <Route path="settings" element={<AdminSettings />} />
+        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
       </Route>
 
       <Route

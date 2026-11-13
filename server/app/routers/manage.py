@@ -5,7 +5,11 @@ no restaurant id in any URL and no way to reach another restaurant's data.
 """
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_role
@@ -13,6 +17,12 @@ from app.core.roles import Role
 from app.core.security import hash_password
 from app.core.tenancy import get_current_restaurant, is_owner
 from app.models.driver import Driver
+from app.models.menu import Menu
+from app.models.menu_item import MenuItem
+from app.models.order import Order
+from app.models.subscription import utcnow
+from app.services import uploads
+from app.utils.OrderStatus import OrderStatus
 from app.models.refresh_tokens import RefreshToken
 from app.models.restaurant import Restaurant
 from app.models.restaurant_admin import RestaurantAdmin
@@ -73,6 +83,116 @@ def _deactivate(db: Session, user: User) -> None:
         redis_client.delete(f"lvovo:user_profile:{user.id}")
     except Exception:
         pass
+
+
+# ---------------- the restaurant's own profile and logo ----------------
+class RestaurantProfileUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    address: Optional[str] = Field(default=None, min_length=1, max_length=300)
+    description: Optional[str] = Field(default=None, max_length=500)
+
+    class Config:
+        extra = "forbid"
+
+
+def _profile(restaurant: Restaurant) -> dict:
+    return {
+        "id": restaurant.id, "name": restaurant.name, "address": restaurant.address,
+        "description": restaurant.description, "logo_img_url": restaurant.logo_img_url,
+        "is_active": bool(restaurant.is_active),
+    }
+
+
+def _refresh_public_listing(restaurant_id: str) -> None:
+    """Customers see restaurants through a 60s cache: drop it so changes show at once."""
+    try:
+        from app.core.redis import redis_client
+        redis_client.delete("lvovo:restaurants:list", f"lvovo:restaurant:{restaurant_id}", "lvovo:stats:public")
+    except Exception:
+        pass
+
+
+@router.get("/restaurant")
+def read_profile(restaurant: Restaurant = Depends(get_current_restaurant)) -> dict:
+    return _profile(restaurant)
+
+
+@router.patch("/restaurant")
+def update_profile(
+    payload: RestaurantProfileUpdate,
+    db: Session = Depends(get_db),
+    restaurant: Restaurant = Depends(get_current_restaurant),
+    user=Depends(restaurant_user),
+) -> dict:
+    owner_only(restaurant, user)
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(restaurant, key, value)
+    db.commit()
+    db.refresh(restaurant)
+    _refresh_public_listing(restaurant.id)
+    return _profile(restaurant)
+
+
+@router.post("/restaurant/logo")
+async def upload_logo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    restaurant: Restaurant = Depends(get_current_restaurant),
+    user=Depends(restaurant_user),
+) -> dict:
+    """Replace the restaurant's logo with an uploaded PNG, JPG or WebP image."""
+    owner_only(restaurant, user)
+    previous = restaurant.logo_img_url
+    restaurant.logo_img_url = await uploads.save_logo(file, restaurant.id)
+    db.commit()
+    db.refresh(restaurant)
+    uploads.delete_uploaded(previous)
+    _refresh_public_listing(restaurant.id)
+    return _profile(restaurant)
+
+
+@router.delete("/restaurant/logo")
+def remove_logo(
+    db: Session = Depends(get_db),
+    restaurant: Restaurant = Depends(get_current_restaurant),
+    user=Depends(restaurant_user),
+) -> dict:
+    owner_only(restaurant, user)
+    uploads.delete_uploaded(restaurant.logo_img_url)
+    restaurant.logo_img_url = None
+    db.commit()
+    db.refresh(restaurant)
+    _refresh_public_listing(restaurant.id)
+    return _profile(restaurant)
+
+
+@router.get("/stats")
+def restaurant_stats(db: Session = Depends(get_db), restaurant: Restaurant = Depends(get_current_restaurant)) -> dict:
+    """Real numbers for the restaurant's dashboard."""
+    today = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    month_start = today.replace(day=1)
+    mine = Order.restaurant_id == restaurant.id
+
+    def count(*conditions) -> int:
+        return db.query(Order).filter(mine, *conditions).count()
+
+    def sales(*conditions):
+        # Money actually earned: orders that were delivered
+        return db.query(func.coalesce(func.sum(Order.total_amount), 0)).filter(
+            mine, Order.status == OrderStatus.DELIVERED, *conditions
+        ).scalar() or 0
+
+    not_cancelled = Order.status != OrderStatus.CANCELLED
+    return {
+        "orders_today": count(Order.created_at >= today, not_cancelled),
+        "orders_this_month": count(Order.created_at >= month_start, not_cancelled),
+        "sales_today": sales(Order.created_at >= today),
+        "sales_this_month": sales(Order.created_at >= month_start),
+        "open_orders": count(Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])),
+        "menu_items_available": db.query(MenuItem).join(Menu, MenuItem.menu_id == Menu.id).filter(
+            Menu.restaurant_id == restaurant.id, MenuItem.is_available == True
+        ).count(),
+    }
 
 
 # ---------------- how the restaurant gets paid ----------------

@@ -54,17 +54,17 @@ def toggle_availability(
     user = Depends(require_role(Role.DRIVER))
 ):
     """
-    Driver can set themselves available or unavailable.
+    Driver goes online or offline. This never fails because of a delivery in
+    progress: going offline mid-delivery just means no NEW jobs after this one.
     """
-    if available and has_active_delivery(db, user.id):
-        raise HTTPException(
-            status_code=409,
-            detail="Finish your current delivery before going online for new jobs"
-        )
     driver = set_driver_availability(db, user.id, available)
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
-    return {"user_id": driver.id, "is_available": driver.is_available}
+    return {
+        "user_id": driver.id,
+        "is_available": driver.is_available,  # online / offline: the driver's own choice
+        "on_delivery": has_active_delivery(db, user.id),
+    }
 
 # ----------------------------
 # GET AVAILABLE DRIVER (FOR TEST / ADMIN)
@@ -140,6 +140,11 @@ def get_stats(
         Order.status == "delivered"
     ).count()
 
+    finished_count = db.query(Order).filter(
+        Order.driver_id == user.id,
+        Order.status.in_(["delivered", "cancelled"])
+    ).count()
+
     # 3. Earnings: the delivery fees of the orders this driver delivered.
     # (Previously this summed the full order totals, i.e. the restaurants' money.)
     earnings = db.query(func.sum(Order.delivery_fee)).filter(
@@ -151,5 +156,6 @@ def get_stats(
         "today_deliveries": today_count,
         "completed_deliveries": completed_count,
         "total_earnings": float(earnings),
-        "reliability_score": 100 # Mock for now
+        # Share of this driver's finished jobs that were delivered (not cancelled)
+        "reliability_score": round(100 * completed_count / finished_count) if finished_count else 0
     }
