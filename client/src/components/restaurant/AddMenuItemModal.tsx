@@ -83,7 +83,7 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
             <div className="bg-gray-900 border border-gray-800 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative z-10 animate-in zoom-in-95 duration-200">
                 <div className="p-6 border-b border-gray-800 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center text-blue-500">
+                        <div className="w-10 h-10 bg-brand-500/10 rounded-xl flex items-center justify-center text-brand-500">
                             <UtensilsCrossed size={20} />
                         </div>
                         <h2 className="text-xl font-bold text-white tracking-tighter">
@@ -101,7 +101,7 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                 <form onSubmit={handleSubmit} className="p-6 space-y-5">
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
-                            <UtensilsCrossed size={14} className="text-blue-500/50" />
+                            <UtensilsCrossed size={14} className="text-brand-500/50" />
                             <span>Dish Name</span>
                         </label>
                         <input
@@ -110,13 +110,13 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="e.g. Signature Chicken Dust"
-                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600"
                         />
                     </div>
 
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
-                            <AlignLeft size={14} className="text-blue-500/50" />
+                            <AlignLeft size={14} className="text-brand-500/50" />
                             <span>Description</span>
                         </label>
                         <textarea
@@ -124,13 +124,13 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                             onChange={(e) => setDescription(e.target.value)}
                             placeholder="Describe your dish..."
                             rows={3}
-                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600 resize-none"
+                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600 resize-none"
                         ></textarea>
                     </div>
 
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
-                            <Banknote size={14} className="text-blue-500/50" />
+                            <Banknote size={14} className="text-brand-500/50" />
                             <span>Price (R)</span>
                         </label>
                         <input
@@ -140,13 +140,13 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                             value={price}
                             onChange={(e) => setPrice(e.target.value)}
                             placeholder="0.00"
-                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600"
                         />
                     </div>
 
                     <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
-                            <ImageIcon size={14} className="text-blue-500/50" />
+                            <ImageIcon size={14} className="text-brand-500/50" />
                             <span>Image URL (Optional)</span>
                         </label>
                         <input
@@ -154,7 +154,7 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                             value={imageUrl}
                             onChange={(e) => setImageUrl(e.target.value)}
                             placeholder="https://example.com/item.jpg"
-                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 transition-all placeholder-gray-600"
+                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600"
                         />
                     </div>
 
@@ -164,7 +164,7 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                             id="isAvailable"
                             checked={isAvailable}
                             onChange={(e) => setIsAvailable(e.target.checked)}
-                            className="w-5 h-5 rounded border-gray-800 bg-gray-900 text-blue-600 focus:ring-blue-500 transition-all hover:scale-110"
+                            className="w-5 h-5 rounded border-gray-800 bg-gray-900 text-brand-600 focus:ring-brand-500 transition-all hover:scale-110"
                         />
                         <label htmlFor="isAvailable" className="text-sm font-bold text-gray-400 cursor-pointer select-none">
                             Item is available for order
@@ -182,7 +182,7 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2"
+                            className="flex-1 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-2xl transition-all shadow-lg shadow-brand-600/20 active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-2"
                         >
                             {isSubmitting ? (
                                 <>

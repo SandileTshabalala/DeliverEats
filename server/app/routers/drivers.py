@@ -3,10 +3,13 @@ from sqlalchemy.orm import Session
 from app.schemas.driver import DriverProfileCreate, DriverRead
 from app.services.driver_service import (
     create_driver_profile,
-    get_available_driver,
+    has_active_delivery,
     set_driver_availability,
     get_driver_profile
 )
+from app.models.driver import Driver
+from app.models.order import Order
+from app.utils.OrderStatus import OrderStatus
 from app.services.order_service import update_order_status
 from app.core.dependencies import require_role, get_current_user
 from app.core.roles import Role
@@ -26,7 +29,7 @@ def create_profile(
     """
     Create or update driver profile with vehicle type.
     """
-    return create_driver_profile(db, user.id, payload.vehicle_type)
+    return create_driver_profile(db, user.id, payload.vehicle_type, payload.vehicle_number)
 
 @router.get("/profile", response_model=DriverRead)
 def get_profile(
@@ -53,6 +56,11 @@ def toggle_availability(
     """
     Driver can set themselves available or unavailable.
     """
+    if available and has_active_delivery(db, user.id):
+        raise HTTPException(
+            status_code=409,
+            detail="Finish your current delivery before going online for new jobs"
+        )
     driver = set_driver_availability(db, user.id, available)
     if not driver:
         raise HTTPException(status_code=404, detail="Driver profile not found")
@@ -62,11 +70,19 @@ def toggle_availability(
 # GET AVAILABLE DRIVER (FOR TEST / ADMIN)
 # ----------------------------
 @router.get("/available", response_model=DriverRead)
-def available_driver(db: Session = Depends(get_db)):
+def available_driver(
+    db: Session = Depends(get_db),
+    admin = Depends(require_role(Role.SUPER_ADMIN))
+):
     """
-    Get first available driver (cached in Redis)
+    Admin only: peek at the next driver in line. Read-only, it does not reserve them.
     """
-    driver = get_available_driver(db)
+    driver = (
+        db.query(Driver)
+        .filter(Driver.is_available == True)
+        .order_by(Driver.last_assigned_at.asc().nullsfirst())
+        .first()
+    )
     if not driver:
         raise HTTPException(status_code=404, detail="No drivers available")
     return driver
@@ -77,18 +93,22 @@ def available_driver(db: Session = Depends(get_db)):
 @router.post("/orders/{order_id}/status")
 def update_status(
     order_id: str,
-    status: str,  # "picked_up" or "delivered"
+    status: OrderStatus,  # "picked_up" or "delivered"
     db: Session = Depends(get_db),
     user = Depends(require_role(Role.DRIVER))
 ):
     """
-    Driver updates the status of an assigned order.
+    Driver updates the status of an order assigned to them.
     """
-    order = update_order_status(db, order_id, status)
-    if not order:
+    if status not in (OrderStatus.PICKED_UP, OrderStatus.DELIVERED):
+        raise HTTPException(status_code=403, detail="Drivers can only mark orders as picked up or delivered")
+
+    # Check ownership BEFORE changing anything
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order or order.driver_id != user.id:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.driver_id != user.id:
-        raise HTTPException(status_code=403, detail="This order is not assigned to you")
+
+    order = update_order_status(db, order_id, status, order=order)
     return {"order_id": order.id, "status": order.status}
 
 # ----------------------------
@@ -120,9 +140,9 @@ def get_stats(
         Order.status == "delivered"
     ).count()
 
-    # 3. Earnings (Sum of totals for delivered orders)
-    # Note: In real app, this should be a split (e.g. 20%). For now, we show total order value handled.
-    earnings = db.query(func.sum(Order.total_amount)).filter(
+    # 3. Earnings: the delivery fees of the orders this driver delivered.
+    # (Previously this summed the full order totals, i.e. the restaurants' money.)
+    earnings = db.query(func.sum(Order.delivery_fee)).filter(
         Order.driver_id == user.id,
         Order.status == "delivered"
     ).scalar() or 0.0

@@ -16,14 +16,18 @@ class PaymentBase(BaseModel):
 class PaymentCreate(BaseModel):
     order_id: str
     provider_name: str
-    amount: Decimal
+    # Ignored: the amount charged is always the order total stored on the server
+    amount: Optional[Decimal] = None
 
 class PaymentResponse(BaseModel):
     id: str
     status: PaymentStatus = PaymentStatus.PENDING
     provider_name: str
     amount: Decimal
+    # Where to send the customer. PayFast: POST `checkout_fields` to this URL.
+    # Stripe: this is the PaymentIntent client secret.
     checkout_url: Optional[str] = None
+    checkout_fields: Optional[dict] = None
     provider_metadata: Optional[dict] = None
 
     class Config:

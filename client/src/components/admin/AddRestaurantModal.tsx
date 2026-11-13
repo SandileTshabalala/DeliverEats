@@ -45,7 +45,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
             <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-2xl overflow-hidden transform animate-in zoom-in duration-200 max-h-[90vh] flex flex-col">
                 <div className="px-8 py-6 border-b border-gray-800 flex items-center justify-between bg-gray-900/50">
                     <div className="flex items-center space-x-3">
-                        <div className="p-2.5 bg-blue-500/10 rounded-xl text-blue-400">
+                        <div className="p-2.5 bg-brand-500/10 rounded-xl text-brand-400">
                             <Store size={24} />
                         </div>
                         <h2 className="text-2xl font-bold text-white tracking-tight">Add New Restaurant</h2>
@@ -59,7 +59,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                         {/* Restaurant Details */}
                         <div className="space-y-5">
-                            <h3 className="text-sm font-bold text-gold-500 uppercase tracking-widest flex items-center space-x-2">
+                            <h3 className="text-sm font-bold text-brand-500 uppercase tracking-widest flex items-center space-x-2">
                                 <span>Restaurant Information</span>
                             </h3>
 
@@ -68,7 +68,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                                 <input
                                     required
                                     type="text"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all"
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 />
@@ -79,7 +79,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                                 <input
                                     required
                                     type="text"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all"
                                     value={formData.address}
                                     onChange={e => setFormData({ ...formData, address: e.target.value })}
                                 />
@@ -88,7 +88,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Description</label>
                                 <textarea
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all resize-none h-32"
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all resize-none h-32"
                                     value={formData.description}
                                     onChange={e => setFormData({ ...formData, description: e.target.value })}
                                     placeholder="Brief description of the restaurant..."
@@ -98,7 +98,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
 
                         {/* Admin Details */}
                         <div className="space-y-5">
-                            <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center space-x-2">
+                            <h3 className="text-sm font-bold text-brand-400 uppercase tracking-widest flex items-center space-x-2">
                                 <span>Admin Account</span>
                             </h3>
 
@@ -108,7 +108,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                                     <input
                                         required
                                         type="text"
-                                        className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                                        className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all"
                                         value={formData.admin_name}
                                         onChange={e => setFormData({ ...formData, admin_name: e.target.value })}
                                     />
@@ -118,7 +118,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                                     <input
                                         required
                                         type="text"
-                                        className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                                        className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all"
                                         value={formData.admin_sur_name}
                                         onChange={e => setFormData({ ...formData, admin_sur_name: e.target.value })}
                                     />
@@ -130,7 +130,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                                 <input
                                     required
                                     type="email"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all"
                                     value={formData.admin_email}
                                     onChange={e => setFormData({ ...formData, admin_email: e.target.value })}
                                 />
@@ -141,7 +141,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                                 <input
                                     required
                                     type="password"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all"
                                     value={formData.admin_password}
                                     onChange={e => setFormData({ ...formData, admin_password: e.target.value })}
                                 />
@@ -152,7 +152,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                                 <input
                                     required
                                     type="tel"
-                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-gold-500 outline-none transition-all"
+                                    className="w-full bg-gray-800/50 border border-gray-700 rounded-xl px-4 py-3 text-white focus:ring-1 focus:ring-brand-500 outline-none transition-all"
                                     value={formData.admin_contact_number}
                                     onChange={e => setFormData({ ...formData, admin_contact_number: e.target.value })}
                                 />
@@ -171,7 +171,7 @@ const AddRestaurantModal: React.FC<AddRestaurantModalProps> = ({ isOpen, onClose
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-6 py-3.5 bg-gold-500 hover:bg-gold-600 disabled:bg-gold-500/50 text-black font-bold rounded-2xl transition-all shadow-xl shadow-gold-500/20 flex items-center justify-center space-x-2"
+                            className="flex-1 px-6 py-3.5 bg-brand-500 hover:bg-brand-600 disabled:bg-brand-500/50 text-black font-bold rounded-2xl transition-all shadow-xl shadow-brand-500/20 flex items-center justify-center space-x-2"
                         >
                             {loading ? <Loader2 size={24} className="animate-spin" /> : <span>Create Restaurant</span>}
                         </button>

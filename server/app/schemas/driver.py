@@ -11,7 +11,7 @@ class DriverBase(BaseModel):
 
 class DriverProfileCreate(BaseModel):
     vehicle_type: str
-    vehicle_number: Optional[str]
+    vehicle_number: Optional[str] = None
 
 class DriverRead(BaseModel):
     id: str

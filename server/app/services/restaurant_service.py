@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from app.core.cache import get_cache, set_cache
 from app.models.restaurant import Restaurant
 from app.schemas.restaurant import RestaurantCreate
+from app.services.subscription_service import is_restaurant_live
 
 async def get_restaurant(db: Session, restaurant_id: str):
     key = f"restaurant:{restaurant_id}"
@@ -18,7 +19,7 @@ CACHE_TTL = 60  # seconds
 
 def get_restaurant_by_id(db: Session, restaurant_id: str):
     r = db.query(Restaurant).filter(Restaurant.id == restaurant_id, Restaurant.is_active == True).first()
-    if not r:
+    if not r or not is_restaurant_live(db, r):
         return None
     return {
         "id": r.id,
@@ -48,6 +49,7 @@ def fetch_from_db(db: Session):
             "logo_img_url": r.logo_img_url,
         }
         for r in restaurants
+        if is_restaurant_live(db, r)  # hidden while the subscription is suspended / expired
     ]
 
 async def get_restaurants(db: Session):

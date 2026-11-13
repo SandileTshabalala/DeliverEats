@@ -14,12 +14,14 @@ import {
   X
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Users as TeamIcon } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 const navItems = [
   { name: 'Dashboard', icon: LayoutDashboard, path: '/restaurant/dashboard' },
   { name: 'Orders', icon: ShoppingBag, path: '/restaurant/orders' },
   { name: 'Menus', icon: UtensilsCrossed, path: '/restaurant/menus' },
+  { name: 'Team', icon: TeamIcon, path: '/restaurant/team' },
   { name: 'Settings', icon: Settings, path: '/restaurant/settings' },
 ];
 
@@ -56,7 +58,7 @@ const RestaurantLayout = () => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
-            <h1 className="text-xl font-bold text-gold-500 tracking-tight">LVOVO KITCHEN</h1>
+            <h1 className="text-xl font-bold text-brand-500 tracking-tight">LVOVO KITCHEN</h1>
             <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
               <X size={20} />
             </button>
@@ -72,13 +74,13 @@ const RestaurantLayout = () => {
                 className={({ isActive }) => clsx(
                   "flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 group",
                   isActive
-                    ? "bg-gold-500/10 text-gold-500 shadow-[inset_0_0_10px_rgba(255,192,0,0.1)]"
+                    ? "bg-brand-500/10 text-brand-500 shadow-[inset_0_0_10px_rgba(242,100,24,0.1)]"
                     : "text-gray-400 hover:text-white hover:bg-gray-800"
                 )}
               >
                 <item.icon size={20} className={clsx(
                   "transition-colors",
-                  "group-hover:text-gold-400"
+                  "group-hover:text-brand-400"
                 )} />
                 <span className="font-medium">{item.name}</span>
               </NavLink>
@@ -88,7 +90,7 @@ const RestaurantLayout = () => {
           {/* Footer User Info */}
           <div className="p-4 border-t border-gray-800">
             <div className="flex items-center space-x-3 p-2 rounded-lg bg-gray-800/50">
-              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
+              <div className="w-8 h-8 rounded-full bg-brand-600 flex items-center justify-center text-xs font-bold text-white">
                 {user?.name?.charAt(0) || 'R'}
               </div>
               <div className="flex-1 min-w-0">
@@ -116,7 +118,7 @@ const RestaurantLayout = () => {
           <div className="flex items-center space-x-2 sm:space-x-4">
             <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
               <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-gold-500 rounded-full border-2 border-gray-900"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-brand-500 rounded-full border-2 border-gray-900"></span>
             </button>
 
             <div className="h-8 w-px bg-gray-800"></div>
@@ -127,7 +129,7 @@ const RestaurantLayout = () => {
                 className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-800 transition-colors"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-blue-400 flex items-center justify-center text-white font-bold text-xs">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-white font-bold text-xs">
                   {user?.name?.charAt(0) || 'R'}
                 </div>
                 <div className="hidden md:block text-left">

@@ -49,23 +49,30 @@ const RestaurantOrders = () => {
         try {
             if (newStatus === 'accepted') {
                 await orderService.acceptOrder(orderId);
-                toast.success('Order accepted! Waiting for driver.');
+                toast.success('Order accepted!');
             } else {
                 await orderService.updateStatus(orderId, newStatus);
                 toast.success(`Order status updated to ${newStatus}`);
             }
             fetchOrders();
-        } catch (error) {
-            toast.error('Failed to update order status');
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            toast.error(typeof detail === 'string' ? detail : 'Failed to update order status');
         }
     };
 
-    const filteredOrders = orders.filter(order => {
-        if (activeTab === 'pending') return order.status === 'pending';
-        if (activeTab === 'preparing') return order.status === 'preparing' || order.status === 'accepted';
-        if (activeTab === 'ready') return order.status === 'ready';
-        return ['delivered', 'cancelled'].includes(order.status);
-    });
+    // Which tab an order belongs to. Every status maps to exactly one tab: orders
+    // waiting for a driver or out for delivery used to match no tab and vanished.
+    const tabFor = (order: any): 'pending' | 'preparing' | 'ready' | 'history' | 'hidden' => {
+        // Online payment not confirmed yet: nothing for the kitchen to do until it is paid
+        const awaitingPayment = ['pending', 'failed', 'unpaid'].includes(order.payment_status);
+        if (order.status === 'pending') return awaitingPayment ? 'hidden' : 'pending';
+        if (['accepted', 'preparing', 'waiting_for_driver'].includes(order.status)) return 'preparing';
+        if (['ready', 'picked_up'].includes(order.status)) return 'ready';
+        return 'history';
+    };
+
+    const filteredOrders = orders.filter(order => tabFor(order) === activeTab);
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -91,24 +98,14 @@ const RestaurantOrders = () => {
                         className={clsx(
                             "px-6 py-2.5 rounded-xl text-sm font-bold transition-all uppercase tracking-widest flex-shrink-0",
                             activeTab === tab
-                                ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                                ? "bg-brand-600 text-white shadow-lg shadow-brand-600/20"
                                 : "text-gray-500 hover:text-gray-300"
                         )}
                     >
                         {tab}
-                        {orders.filter(o => {
-                            if (tab === 'pending') return o.status === 'pending';
-                            if (tab === 'preparing') return o.status === 'preparing' || o.status === 'accepted';
-                            if (tab === 'ready') return o.status === 'ready';
-                            return false;
-                        }).length > 0 && (
+                        {orders.filter(o => tab !== 'history' && tabFor(o) === tab).length > 0 && (
                                 <span className="ml-2 bg-white/20 px-1.5 rounded-md text-[10px]">
-                                    {orders.filter(o => {
-                                        if (tab === 'pending') return o.status === 'pending';
-                                        if (tab === 'preparing') return o.status === 'preparing' || o.status === 'accepted';
-                                        if (tab === 'ready') return o.status === 'ready';
-                                        return false;
-                                    }).length}
+                                    {orders.filter(o => tab !== 'history' && tabFor(o) === tab).length}
                                 </span>
                             )}
                     </button>
@@ -139,7 +136,7 @@ const RestaurantOrders = () => {
                             >
                                 <div className="p-6 border-b border-gray-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="flex items-center space-x-4">
-                                        <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500 font-black text-lg">
+                                        <div className="w-12 h-12 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-500 font-black text-lg">
                                             #{order.id?.slice(-4).toUpperCase() || 'N/A'}
                                         </div>
                                         <div>
@@ -168,7 +165,7 @@ const RestaurantOrders = () => {
                                             {order.status === 'pending' && (
                                                 <button
                                                     onClick={() => handleUpdateStatus(order.id, 'accepted')}
-                                                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all uppercase text-xs"
+                                                    className="px-6 py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl shadow-lg shadow-brand-600/20 transition-all uppercase text-xs"
                                                 >
                                                     Accept Order
                                                 </button>
@@ -204,7 +201,7 @@ const RestaurantOrders = () => {
                                         {order.items && order.items.length > 0 ? (
                                             order.items.map((item: any, idx) => (
                                                 <div key={idx} className="flex justify-between items-center py-1">
-                                                    <span className="text-sm text-gray-300"><span className="text-blue-500 font-bold mr-2">{item.quantity}x</span> {item.name || 'Menu Item'}</span>
+                                                    <span className="text-sm text-gray-300"><span className="text-brand-500 font-bold mr-2">{item.quantity}x</span> {item.name || 'Menu Item'}</span>
                                                     <span className="text-sm font-bold text-white">R {item.price * item.quantity}</span>
                                                 </div>
                                             ))
@@ -216,11 +213,11 @@ const RestaurantOrders = () => {
                                     {order.driver_id && (
                                         <div className="mt-6 pt-4 border-t border-gray-800/50 flex items-center justify-between text-xs">
                                             <div className="flex items-center space-x-2 text-gray-400">
-                                                <Truck size={14} className="text-gold-500" />
+                                                <Truck size={14} className="text-brand-500" />
                                                 <span>Assigned Driver: </span>
                                                 <span className="text-white font-bold">{order.driver_id?.slice(0, 8) || 'N/A'}</span>
                                             </div>
-                                            <span className="text-gold-500 font-bold bg-gold-500/10 px-2 py-0.5 rounded">Contact Driver</span>
+                                            <span className="text-brand-500 font-bold bg-brand-500/10 px-2 py-0.5 rounded">Contact Driver</span>
                                         </div>
                                     )}
                                 </div>

@@ -27,9 +27,10 @@ async def login_for_access_token(
     return await login(form_data, request, response, db)
 
 #tokens
-@router.post("/refresh-access-token")
+@router.post("/refresh-access-token", response_model=AuthResponse)
 async def refresh_token(
     request: Request,
+    response: Response,
     db: Session = Depends(get_db),
 ):
     refresh_token = request.cookies.get("refresh_token")
@@ -43,7 +44,8 @@ async def refresh_token(
     return await refresh_access_token(
         refresh_token=refresh_token,
         db=db,
-        request=request
+        request=request,
+        response=response
     )
 
 
@@ -67,3 +69,36 @@ async def logout_user_all(
 def read_users_me(current_user: User = Depends(get_current_user)):
     """Get current user information."""
     return current_user
+
+
+# ----------------------------
+# FORGOT / RESET PASSWORD
+# ----------------------------
+from pydantic import BaseModel, EmailStr, Field  # noqa: E402
+
+from app.services.auth_service import request_password_reset, reset_password  # noqa: E402
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=20, max_length=200)
+    password: str = Field(min_length=8, max_length=200)
+
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Emails a reset link if the address belongs to an account. The answer is the
+    same either way, so this cannot be used to find out who has an account.
+    """
+    request_password_reset(db, payload.email)
+    return {"message": "If that email address has an account, we have sent a link to reset the password."}
+
+
+@router.post("/reset-password")
+def reset_password_route(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    reset_password(db, payload.token, payload.password)
+    return {"message": "Your password has been changed. You can sign in now."}

@@ -204,89 +204,115 @@ def rate_limit(
         return limiter(func)
     return decorator
 
+# Paths with their own, much stricter limit (password guessing, sign-up spam)
+AUTH_PATHS = (
+    "/api/v1/auth/login", "/api/v1/auth/register",
+    "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password",
+)
+# Called by PayFast's servers, never by browsers: must not be throttled
+WEBHOOK_PATHS = ("/api/v1/payments/payfast/notify", "/api/v1/billing/payfast/notify")
+UNLIMITED_PREFIXES = ("/docs", "/redoc", "/openapi", "/health")
+
+
+def _client_ip(scope) -> str:
+    """
+    Real caller address. In production the app sits behind nginx, so every
+    connection comes from the proxy: without this, all users would share ONE
+    limit and lock each other out. nginx sets X-Real-IP itself (it cannot be
+    spoofed through the proxy), so it is only trusted in production.
+    """
+    if settings.is_production:
+        headers = dict(scope.get("headers") or [])
+        real_ip = headers.get(b"x-real-ip", b"").decode().strip()
+        if real_ip:
+            return real_ip
+    client = scope.get("client")
+    return client[0] if client else "unknown"
+
+
 class RateLimitMiddleware:
     """
-    Global rate limiting middleware using Redis.
-    Safe for production. Standard ASGI implementation.
+    Global rate limiting using Redis (fixed window per client address).
+
+    - sign-in / sign-up: RATE_LIMIT_AUTH per window, counted together
+    - everything else:   RATE_LIMIT_DEFAULT per window, across the whole API
+    - if Redis is down the limiter fails open: requests are served, not blocked
     """
     def __init__(self, app):
         self.app = app
 
+    async def _check(self, scope, path):
+        """Returns (limit, used, retry_after) or None when the limiter is unavailable."""
+        if path in AUTH_PATHS:
+            bucket, limit = "auth", settings.RATE_LIMIT_AUTH
+        else:
+            bucket, limit = "api", settings.RATE_LIMIT_DEFAULT
+        window = settings.RATE_LIMIT_WINDOW
+        key = f"rate_limit:{bucket}:{_client_ip(scope)}"
+        try:
+            redis = await get_async_redis()
+            # SET NX EX + INCR: the key always has an expiry, so a client can
+            # never be locked out forever if the process dies between two calls
+            await redis.set(key, 0, ex=window, nx=True)
+            used = int(await redis.incr(key))
+            retry_after = 0
+            if used > limit:
+                retry_after = max(int(await redis.ttl(key)), 1)
+            return limit, used, retry_after
+        except Exception as e:
+            logger.error("Rate limiter unavailable, allowing request", extra={"error": str(e)})
+            return None
+
     async def __call__(self, scope, receive, send):
-        # Only rate limit HTTP and WebSocket upgrade requests
         if scope["type"] not in ("http", "websocket"):
             await self.app(scope, receive, send)
             return
 
-        # Skip health & docs
         path = scope.get("path", "")
-        if path.startswith(("/docs", "/redoc", "/openapi", "/health")):
+        if path.startswith(UNLIMITED_PREFIXES) or path in WEBHOOK_PATHS or scope.get("method") == "OPTIONS":
             await self.app(scope, receive, send)
             return
 
-        # Bypassing established WebSockets (Starlette/FastAPI handles the upgrade)
-        # We only rate limit the handshake (the initial HTTP-like request)
-        # In ASGI, a WebSocket connection starts with scope['type'] == 'websocket'
-        
-        redis = await get_async_redis()
-
-        # Identifier (IP-based)
-        client = scope.get("client")
-        client_ip = client[0] if client else "unknown"
-        key = f"rate_limit:{path}:{client_ip}"
-
-        limit = settings.RATE_LIMIT_DEFAULT
-        window = settings.RATE_LIMIT_WINDOW
-
-        try:
-            current = await redis.incr(key)
-            current = int(current)
-
-            if current == 1:
-                await redis.expire(key, window)
-
-            if current > limit:
-                ttl = await redis.ttl(key)
-                retry_after = max(ttl, 1)
-                
-                if scope["type"] == "http":
-                    # Return 429 for HTTP
-                    await send({
-                        "type": "http.response.start",
-                        "status": 429,
-                        "headers": [
-                            (b"content-type", b"application/json"),
-                            (b"retry-after", str(retry_after).encode()),
-                        ],
-                    })
-                    await send({
-                        "type": "http.response.body",
-                        "body": f'{{"detail": "Too many requests", "retry_after": {retry_after}}}'.encode(),
-                    })
-                    return
-                else:
-                    # Close WebSocket for too many attempts
-                    await send({"type": "websocket.close", "code": 1008})
-                    return
-
-            # Success: Continue to next middleware/app
-            async def send_wrapper(message):
-                if message["type"] == "http.response.start":
-                    headers = list(message.get("headers", []))
-                    headers.extend([
-                        (b"X-RateLimit-Limit", str(limit).encode()),
-                        (b"X-RateLimit-Remaining", str(max(0, limit - current)).encode()),
-                        (b"X-RateLimit-Reset", str(int(time.time()) + window).encode()),
-                    ])
-                    message["headers"] = headers
-                await send(message)
-
-            await self.app(scope, receive, send_wrapper)
-
-        except Exception as e:
-            # Fail-open
-            logger.error("Rate limiter failure", extra={"error": str(e)}, exc_info=True)
+        result = await self._check(scope, path)
+        if result is None:
             await self.app(scope, receive, send)
+            return
+        limit, used, retry_after = result
+
+        if retry_after:
+            if scope["type"] == "http":
+                await send({
+                    "type": "http.response.start",
+                    "status": 429,
+                    "headers": [
+                        (b"content-type", b"application/json"),
+                        (b"retry-after", str(retry_after).encode()),
+                    ],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": f'{{"detail": "Too many requests. Please wait a moment and try again.", "retry_after": {retry_after}}}'.encode(),
+                })
+            else:
+                await send({"type": "websocket.close", "code": 1008})
+            return
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.extend([
+                    (b"X-RateLimit-Limit", str(limit).encode()),
+                    (b"X-RateLimit-Remaining", str(max(0, limit - used)).encode()),
+                ])
+                message["headers"] = headers
+            await send(message)
+
+        # The app is called exactly ONCE and outside any try/except. The old
+        # code wrapped this call in "except Exception: await self.app(...)", so
+        # any error inside a request ran the whole request a second time (with
+        # its body already consumed, which hung the connection forever).
+        await self.app(scope, receive, send_wrapper)
+
 
 # Apply rate limiting to FastAPI routes
 # def apply_rate_limiting(app, global_limits=None):

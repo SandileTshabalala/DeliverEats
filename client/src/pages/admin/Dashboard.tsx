@@ -47,11 +47,11 @@ const Dashboard = () => {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className="group p-6 bg-gray-900/40 backdrop-blur-xl border border-gray-800 rounded-2xl hover:border-gold-500/30 transition-all duration-300"
+                        className="group p-6 bg-gray-900/40 backdrop-blur-xl border border-gray-800 rounded-2xl hover:border-brand-500/30 transition-all duration-300"
                     >
                         <div className="flex items-start justify-between">
-                            <div className="p-2 bg-gray-800/50 rounded-lg group-hover:bg-gold-500/10 transition-colors">
-                                <stat.icon className="text-gray-400 group-hover:text-gold-400 transition-colors" size={24} />
+                            <div className="p-2 bg-gray-800/50 rounded-lg group-hover:bg-brand-500/10 transition-colors">
+                                <stat.icon className="text-gray-400 group-hover:text-brand-400 transition-colors" size={24} />
                             </div>
                             <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-bold ${stat.positive ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'
                                 }`}>
@@ -72,7 +72,7 @@ const Dashboard = () => {
                 <div className="lg:col-span-2 p-6 bg-gray-900/40 backdrop-blur-xl border border-gray-800 rounded-2xl">
                     <div className="flex items-center justify-between mb-8">
                         <h3 className="text-lg font-bold text-white">Order Volume</h3>
-                        <select className="bg-gray-800 border-none rounded-lg text-xs font-bold text-gray-300 focus:ring-1 focus:ring-gold-500">
+                        <select className="bg-gray-800 border-none rounded-lg text-xs font-bold text-gray-300 focus:ring-1 focus:ring-brand-500">
                             <option>Last 7 Days</option>
                             <option>Last 30 Days</option>
                         </select>
@@ -82,7 +82,7 @@ const Dashboard = () => {
                         {[45, 60, 42, 75, 55, 90, 65].map((height, i) => (
                             <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
                                 <div
-                                    className="w-full bg-gold-500/20 group-hover:bg-gold-500/40 transition-all duration-500 rounded-t-lg relative"
+                                    className="w-full bg-brand-500/20 group-hover:bg-brand-500/40 transition-all duration-500 rounded-t-lg relative"
                                     style={{ height: `${height}%` }}
                                 >
                                     <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
@@ -117,7 +117,7 @@ const Dashboard = () => {
                             </div>
                         ))}
                     </div>
-                    <button className="w-full mt-6 py-2.5 bg-gray-800/50 hover:bg-gray-800 text-xs font-bold text-gold-500 rounded-xl transition-colors border border-gray-700">
+                    <button className="w-full mt-6 py-2.5 bg-gray-800/50 hover:bg-gray-800 text-xs font-bold text-brand-500 rounded-xl transition-colors border border-gray-700">
                         View All Activity
                     </button>
                 </div>

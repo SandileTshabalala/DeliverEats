@@ -1,4 +1,4 @@
-from passlib.context import CryptContext
+import bcrypt
 import hashlib
 import secrets
 import string
@@ -18,22 +18,35 @@ from app.models.user import User
 from app.models.refresh_tokens import RefreshToken
 
 # Password hashing
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=10  # Reduced rounds for faster performance while remaining secure
-)
+#
+# Uses the `bcrypt` package directly. passlib (last released in 2020) crashes
+# with current bcrypt versions ("password cannot be longer than 72 bytes"),
+# which broke registration and login on any fresh install. Hashes are the same
+# $2b$ format, so every existing password keeps working.
+BCRYPT_ROUNDS = 12
+# bcrypt only reads the first 72 bytes; cut explicitly so long passwords work
+_BCRYPT_MAX_BYTES = 72
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
 
+
+def _password_bytes(password: str) -> bytes:
+    return password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
+
+
 def hash_password(password: str) -> str:
     """Hash a password for storing."""
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_password_bytes(password), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("ascii")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a stored password against one provided by user."""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return bcrypt.checkpw(_password_bytes(plain_password), hashed_password.encode("ascii"))
+    except (ValueError, TypeError, AttributeError):
+        return False  # malformed or missing hash: simply not a match
+
 
 def generate_secure_token(length: int = 64) -> Tuple[str, str]:
     """Generate a secure random token and its hash."""

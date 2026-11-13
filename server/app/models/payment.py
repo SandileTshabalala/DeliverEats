@@ -16,7 +16,7 @@ class Payment(Base):
     reference = Column(String, nullable=True)
     checkout_url = Column(String, nullable=True)
     provider_metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     order = relationship("Order", back_populates="payments")

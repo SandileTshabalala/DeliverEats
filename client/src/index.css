@@ -1,11 +1,85 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/forms";
+
+/*
+ * THEME
+ * -----
+ * Tailwind v4 reads its theme from CSS, not from tailwind.config.js (that file
+ * was being ignored, which is why every `gold-*` class rendered as nothing).
+ *
+ * The whole app is coloured from the two scales below, so changing the look of
+ * the product means editing this file only:
+ *
+ *   brand-*  "Ember"    the flame-orange of a shisanyama fire. Buttons, links,
+ *                       active states, prices. Use 600 behind white text and
+ *                       500 behind dark text.
+ *   gray-*   "Charcoal" warm, slightly brown neutrals for backgrounds, cards,
+ *                       borders and body text (replaces Tailwind's cold blue-gray).
+ *
+ * Status colours (green = done, red = problem, yellow = waiting) are Tailwind's
+ * defaults and are used for meaning only, never for decoration.
+ */
+@theme {
+  --color-brand-50: #fff4ec;
+  --color-brand-100: #ffe5d1;
+  --color-brand-200: #ffc8a3;
+  --color-brand-300: #ffa46b;
+  --color-brand-400: #fb7d36;
+  --color-brand-500: #f26418;
+  --color-brand-600: #d94a0b;
+  --color-brand-700: #b3390c;
+  --color-brand-800: #8f2f11;
+  --color-brand-900: #742a12;
+  --color-brand-950: #3f1206;
+
+  --color-gray-50: #faf8f6;
+  --color-gray-100: #f3f0ec;
+  --color-gray-200: #e6e1db;
+  --color-gray-300: #d2cbc3;
+  --color-gray-400: #a69d94;
+  --color-gray-500: #7d746b;
+  --color-gray-600: #5a524b;
+  --color-gray-700: #403a35;
+  --color-gray-800: #2a2622;
+  --color-gray-900: #1b1816;
+  --color-gray-950: #110f0d;
+
+  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.5;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-gray-950);
+  color: var(--color-gray-100);
+}
+
+/* Keyboard focus is always visible, in the brand colour */
+:focus-visible {
+  outline: 2px solid var(--color-brand-400);
+  outline-offset: 2px;
+}
+
+::selection {
+  background-color: var(--color-brand-600);
+  color: #fff;
+}
+
+/* Used by horizontally scrolling tab rows */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

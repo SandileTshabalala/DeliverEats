@@ -9,7 +9,7 @@ interface StripePaymentFormProps {
     totalPrice: number;
 }
 
-export const StripePaymentForm = ({ clientSecret, onSuccess, totalPrice }: StripePaymentFormProps) => {
+export const StripePaymentForm = ({ onSuccess, totalPrice }: StripePaymentFormProps) => {
     const stripe = useStripe();
     const elements = useElements();
     const [isLoading, setIsLoading] = useState(false);
@@ -67,7 +67,7 @@ export const StripePaymentForm = ({ clientSecret, onSuccess, totalPrice }: Strip
             <button
                 type="submit"
                 disabled={isLoading || !stripe || !elements}
-                className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-3 group"
+                className="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-black uppercase tracking-widest shadow-xl shadow-brand-600/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-3 group"
             >
                 {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

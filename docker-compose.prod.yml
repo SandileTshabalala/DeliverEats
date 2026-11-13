@@ -1,0 +1,65 @@
+# Production stack.
+#
+#   1. Copy server/.env.example to server/.env.prod and fill it in (ENV=production).
+#   2. Point your domain's DNS at this server.
+#   3. DOMAIN=order.yourdomain.co.za docker compose -f docker-compose.prod.yml up -d --build
+#
+# Only ports 80 and 443 are open to the internet. Redis and the API are private.
+services:
+  server:
+    build: ./server
+    env_file: ./server/.env.prod
+    environment:
+      ENV: production
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      # One process only: live order updates are kept in this process's memory
+      WEB_CONCURRENCY: "1"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # Background jobs: cancels unpaid / stale orders and sends subscription reminders.
+  # -B runs the scheduler inside this worker, so keep exactly ONE of these.
+  worker:
+    build: ./server
+    command: celery -A app.workers.worker worker -B -Q lvovo_queue -l info --schedule /tmp/celerybeat-schedule
+    env_file: ./server/.env.prod
+    environment:
+      ENV: production
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy volatile-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./client
+      args:
+        VITE_API_URL: /api/v1
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data      # HTTPS certificates: keep this volume
+      - caddy_config:/config
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  caddy_data:
+  caddy_config:

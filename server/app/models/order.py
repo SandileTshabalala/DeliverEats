@@ -27,7 +27,7 @@ class Order(Base):
     locked = Column(Boolean, default=False)
     locked_at = Column(DateTime)
 
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     #relationships
     customer = relationship("User", back_populates="orders")
@@ -43,6 +43,37 @@ class Order(Base):
     @property
     def restaurant_name(self):
         return self.restaurant.name if self.restaurant else "N/A"
+
+    # --- payment state, derived from the latest payment row (no extra column) ---
+    @property
+    def latest_payment(self):
+        if not self.payments:
+            return None
+        return max(self.payments, key=lambda p: p.created_at or datetime.min)
+
+    @property
+    def payment_method(self):
+        payment = self.latest_payment
+        if payment and payment.provider:
+            return payment.provider.provider_name
+        return None
+
+    @property
+    def payment_status(self):
+        """unpaid | pay_on_delivery | pending | completed | failed"""
+        from app.utils.PaymentStatus import is_offline_provider
+        payment = self.latest_payment
+        if not payment:
+            return "unpaid"
+        status = payment.status.value if hasattr(payment.status, "value") else str(payment.status)
+        if is_offline_provider(self.payment_method) and status != "completed":
+            return "pay_on_delivery"
+        return status
+
+    @property
+    def is_payment_cleared(self):
+        """True when the restaurant may start working on the order."""
+        return self.payment_status in ("pay_on_delivery", "completed")
 
     __table_args__ = (
         Index('idx_order_driver_status', 'driver_id', 'status'),

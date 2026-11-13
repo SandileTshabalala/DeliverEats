@@ -60,13 +60,13 @@ const Jobs = () => {
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-gold-500 transition-colors" size={20} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-brand-500 transition-colors" size={20} />
                     <input
                         type="text"
                         placeholder="Search by order ID or restaurant..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-gray-900/50 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 focus:ring-1 focus:ring-gold-500 focus:border-gold-500 outline-none transition-all placeholder-gray-600"
+                        className="w-full bg-gray-900/50 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-600"
                     />
                 </div>
                 <div className="flex bg-gray-900/50 border border-gray-800 rounded-xl p-1">
@@ -76,7 +76,7 @@ const Jobs = () => {
                             onClick={() => setFilter(f)}
                             className={clsx(
                                 "px-4 py-1.5 rounded-lg text-sm font-bold transition-all uppercase tracking-wider",
-                                filter === f ? "bg-gold-500 text-black shadow-lg" : "text-gray-500 hover:text-gray-300"
+                                filter === f ? "bg-brand-500 text-black shadow-lg" : "text-gray-500 hover:text-gray-300"
                             )}
                         >
                             {f}
@@ -121,11 +121,11 @@ const Jobs = () => {
                                             </div>
                                             <div className="flex flex-wrap items-center gap-y-1 gap-x-4 mt-1">
                                                 <div className="flex items-center text-xs text-gray-500 space-x-1">
-                                                    <MapPin size={12} className="text-gold-500/50" />
+                                                    <MapPin size={12} className="text-brand-500/50" />
                                                     <span>{job.delivery_address || 'Address provided on acceptance'}</span>
                                                 </div>
                                                 <div className="flex items-center text-xs text-gray-500 space-x-1">
-                                                    <Calendar size={12} className="text-blue-500/50" />
+                                                    <Calendar size={12} className="text-brand-500/50" />
                                                     <span>{new Date(job.created_at).toLocaleDateString()}</span>
                                                 </div>
                                             </div>
@@ -137,7 +137,7 @@ const Jobs = () => {
                                             <p className="text-lg font-bold text-white">R {job.total || '0.00'}</p>
                                             <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{job.status}</p>
                                         </div>
-                                        <button className="p-2 text-gray-500 group-hover:text-gold-500 bg-gray-800/50 rounded-xl transition-colors">
+                                        <button className="p-2 text-gray-500 group-hover:text-brand-500 bg-gray-800/50 rounded-xl transition-colors">
                                             <ChevronRight size={24} />
                                         </button>
                                     </div>

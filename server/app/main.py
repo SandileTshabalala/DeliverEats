@@ -33,6 +33,8 @@ from app.routers.payments import router as payments_router
 from app.routers.menus import router as menus_router
 from app.routers.notifications import router as notifications_router
 from app.routers.addresses import router as addresses_router
+from app.routers.billing import router as billing_router
+from app.routers.manage import router as manage_router
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
@@ -64,12 +66,34 @@ async def lifespan(app: FastAPI):
         logger.info("Redis initialized successfully")
 
         # Create tables (for dev/production safety)
-        print("DEBUG: Calling Base.metadata.create_all(bind=engine)")
         Base.metadata.create_all(bind=engine)
-        print("DEBUG: Tables in metadata:", Base.metadata.tables.keys())
+        # create_all only creates missing TABLES; it never adds a column to an
+        # existing one. Same change as alembic revision c41f0a7d9e21, repeated
+        # here so the app also starts if migrations were not run.
+        if engine.dialect.name == "postgresql":
+            from sqlalchemy import text
+            with engine.begin() as connection:
+                connection.execute(text(
+                    "ALTER TABLE drivers ADD COLUMN IF NOT EXISTS restaurant_id VARCHAR "
+                    "REFERENCES restaurants(id) ON DELETE SET NULL"
+                ))
+                connection.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_drivers_restaurant_id ON drivers (restaurant_id)"
+                ))
         logger.info("Database tables verified/created")
+
+        # Route handlers running in worker threads push websocket events through this loop
+        import asyncio
+        from app.utils.websocket_manager import manager
+        manager.bind_loop(asyncio.get_running_loop())
+
+        # Make sure the built-in payment methods (cash, card on delivery, PayFast) exist
+        from app.db.session import SessionLocal
+        from app.services.payment_service import ensure_default_payment_providers
+        with SessionLocal() as db:
+            ensure_default_payment_providers(db)
     except Exception as e:
-        logger.error(f"Redis initialization failed: {e}")
+        logger.error(f"Application startup failed: {e}")
         raise
 
     yield  # Application is running
@@ -89,6 +113,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs" if ENV != "production" else None,
     redoc_url="/redoc" if ENV != "production" else None,
+    lifespan=lifespan,
 )
 # --- Middleware Configuration ---
 # CORS first to handle preflights and handshakes early
@@ -120,6 +145,8 @@ app.include_router(admin_router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin_payments_router, prefix="/api/v1", tags=["Admin Payments"])
 app.include_router(customer_router, prefix="/api/v1/customer", tags=["Customer"])
 app.include_router(addresses_router, prefix="/api/v1", tags=["Addresses"])
+app.include_router(billing_router, prefix="/api/v1")
+app.include_router(manage_router, prefix="/api/v1")
 
 # setup_logging() 
 
@@ -147,7 +174,7 @@ async def root() -> Dict[str, Any]:
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    request_id = getattr(request.state, "request_id", "missing")
+    request_id = request.scope.get("request_id", "missing")
 
     logger.warning(
         f"HTTP exception: {exc.detail}",
@@ -165,7 +192,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 # --- Global exception handler ---
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    request_id = getattr(request.state, "request_id", "missing")
+    request_id = request.scope.get("request_id", "missing")
     logger.error( f"Unhandled exception: {exc}", extra={"req_id": request_id}, exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

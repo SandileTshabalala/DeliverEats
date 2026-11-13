@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from app.core.roles import Role
 from typing import Optional, List
 from app.schemas.user_address import UserAddressRead
@@ -12,9 +12,14 @@ class UserBase(BaseModel):
     is_active: bool = True
     role: Role = Role.CUSTOMER
 
-# Fields for creating a user
-class UserCreate(UserBase): 
-    password: str
+# Fields for public self-registration. Deliberately has NO role / is_active:
+# everyone who signs up is a customer. Staff accounts are created by an admin.
+class UserCreate(BaseModel):
+    email: EmailStr
+    name: str = Field(min_length=1)
+    sur_name: str = Field(min_length=1)
+    contact_number: str = Field(min_length=5)
+    password: str = Field(min_length=8)
 
 # Fields for reading a user (no password)
 class UserRead(UserBase):

@@ -1,0 +1,30 @@
+# DOMAIN is set in docker-compose.prod.yml (for example: order.yourdomain.co.za).
+# With a real domain pointing at this server, Caddy obtains HTTPS automatically.
+{$DOMAIN:localhost} {
+	encode gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+
+	# API and WebSockets (Caddy upgrades WebSocket connections by itself)
+	handle /api/* {
+		reverse_proxy server:8000 {
+			# the rate limiter and PayFast checks read the real client address from here
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# The web app. Unknown paths fall back to index.html so links like
+	# /customer/orders work when opened directly.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+	}
+}

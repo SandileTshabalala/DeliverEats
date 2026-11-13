@@ -70,13 +70,13 @@ const Menu = () => {
             {/* Restaurant Hero Info */}
             <section className="bg-gray-900 rounded-[40px] p-8 md:p-12 relative overflow-hidden border border-gray-800">
                 <div className="absolute top-0 right-0 p-12 opacity-10 pointer-events-none">
-                    <Utensils size={180} className="text-blue-500" />
+                    <Utensils size={180} className="text-brand-500" />
                 </div>
 
                 <div className="relative z-10 space-y-6 max-w-3xl">
                     <div className="flex items-center space-x-3">
                         <span className="px-3 py-1 bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest rounded-full border border-green-500/20">Open Now</span>
-                        <div className="flex items-center space-x-1 px-3 py-1 bg-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest text-white">
+                        <div className="flex items-center space-x-1 px-3 py-1 bg-brand-600 rounded-full text-[10px] font-black uppercase tracking-widest text-white">
                             <Star size={10} className="fill-current" />
                             <span>4.8 Rating</span>
                         </div>
@@ -84,7 +84,7 @@ const Menu = () => {
 
                     <div className="flex flex-col md:flex-row md:items-center gap-6">
                         {restaurant?.logo_img_url && (
-                            <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-blue-500/20 flex-shrink-0 bg-gray-950">
+                            <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-brand-500/20 flex-shrink-0 bg-gray-950">
                                 <img src={restaurant.logo_img_url} alt={restaurant.name} className="w-full h-full object-cover" />
                             </div>
                         )}
@@ -98,11 +98,11 @@ const Menu = () => {
 
                     <div className="flex flex-wrap items-center gap-6 pt-4 text-gray-400">
                         <div className="flex items-center space-x-2">
-                            <MapPin size={18} className="text-blue-500" />
+                            <MapPin size={18} className="text-brand-500" />
                             <span className="text-sm font-bold uppercase tracking-wider">{restaurant?.address}</span>
                         </div>
                         <div className="flex items-center space-x-2">
-                            <Clock size={18} className="text-blue-500" />
+                            <Clock size={18} className="text-brand-500" />
                             <span className="text-sm font-bold uppercase tracking-wider">25-35 MIN DELIVERY</span>
                         </div>
                     </div>
@@ -112,7 +112,7 @@ const Menu = () => {
             {/* Menu Items Grid */}
             <section className="space-y-8 pb-20">
                 <div className="flex items-center space-x-4">
-                    <div className="w-1.5 h-8 bg-blue-600 rounded-full"></div>
+                    <div className="w-1.5 h-8 bg-brand-600 rounded-full"></div>
                     <h2 className="text-3xl font-black uppercase tracking-tighter italic">Recommended Dishes</h2>
                 </div>
 
@@ -132,7 +132,7 @@ const Menu = () => {
                                 key={item.id}
                                 className={clsx(
                                     "group bg-gray-900 rounded-[32px] overflow-hidden border transition-all duration-300 flex flex-col h-full",
-                                    item.is_available ? "border-gray-800 hover:border-blue-500/50" : "opacity-60 border-red-500/10 grayscale-[0.5]"
+                                    item.is_available ? "border-gray-800 hover:border-brand-500/50" : "opacity-60 border-red-500/10 grayscale-[0.5]"
                                 )}
                             >
                                 <div className="h-44 bg-gray-800 relative overflow-hidden">
@@ -159,7 +159,7 @@ const Menu = () => {
                                 <div className="p-6 flex flex-col flex-1 space-y-4">
                                     <div className="flex-1 space-y-2">
                                         <div className="flex justify-between items-start">
-                                            <h3 className="text-xl font-black tracking-tight group-hover:text-blue-500 transition-colors uppercase italic leading-tight">
+                                            <h3 className="text-xl font-black tracking-tight group-hover:text-brand-500 transition-colors uppercase italic leading-tight">
                                                 {item.name}
                                             </h3>
                                             <p className="text-lg font-black text-white whitespace-nowrap ml-2">R {item.price}</p>
@@ -176,7 +176,7 @@ const Menu = () => {
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     exit={{ opacity: 0, scale: 0.9 }}
-                                                    className="flex items-center justify-between bg-blue-600 rounded-2xl p-1"
+                                                    className="flex items-center justify-between bg-brand-600 rounded-2xl p-1"
                                                 >
                                                     <button
                                                         onClick={() => updateQuantity(item.id, -1)}
@@ -196,7 +196,7 @@ const Menu = () => {
                                                 <button
                                                     disabled={!item.is_available}
                                                     onClick={() => addToCart({ ...item, restaurant_id: restaurantId })}
-                                                    className="w-full flex items-center justify-between space-x-3 py-3 rounded-2xl bg-gray-950 border border-gray-800 text-gray-300 font-black uppercase tracking-widest text-xs hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all active:scale-95 disabled:opacity-0 disabled:pointer-events-none"
+                                                    className="w-full flex items-center justify-between space-x-3 py-3 rounded-2xl bg-gray-950 border border-gray-800 text-gray-300 font-black uppercase tracking-widest text-xs hover:bg-brand-600 hover:text-white hover:border-brand-600 transition-all active:scale-95 disabled:opacity-0 disabled:pointer-events-none"
                                                 >
                                                     <Plus size={16} />
                                                     <span>Add to Cart</span>
@@ -222,7 +222,7 @@ const Menu = () => {
                     >
                         <Link
                             to="/customer/cart"
-                            className="w-full bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-between p-5 rounded-[28px] shadow-2xl shadow-blue-600/30 active:scale-[0.98] transition-all group"
+                            className="w-full bg-brand-600 hover:bg-brand-500 text-white flex items-center justify-between p-5 rounded-[28px] shadow-2xl shadow-brand-600/30 active:scale-[0.98] transition-all group"
                         >
                             <div className="flex items-center space-x-4">
                                 <div className="bg-white/20 p-2 rounded-xl group-hover:rotate-12 transition-transform">

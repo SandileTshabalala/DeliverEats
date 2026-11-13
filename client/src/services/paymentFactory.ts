@@ -7,11 +7,51 @@ export interface PaymentDetails {
     cvc?: string;
 }
 
+/** What POST /payments/ returns. */
+export interface PaymentSession {
+    id: string;
+    status: string;
+    provider_name: string;
+    amount: number | string;
+    /** PayFast: the page to POST `checkout_fields` to. Stripe: the PaymentIntent client secret. */
+    checkout_url?: string | null;
+    /** PayFast only: the signed form fields. They must be posted exactly as received. */
+    checkout_fields?: Record<string, string> | null;
+}
+
 export interface PaymentHandler {
     type: 'direct' | 'redirect' | 'offline';
     validate(details: PaymentDetails): { isValid: boolean; error?: string };
-    process(orderId: string, amount: number, provider: any, checkoutUrl?: string): Promise<void>;
+    /** Resolves `true` when the browser is leaving for the payment page. */
+    process(session: PaymentSession, provider: any): Promise<boolean>;
 }
+
+/**
+ * Send the customer to a hosted payment page.
+ *
+ * PayFast expects a form POST of the signed fields. We build a hidden form and
+ * submit it, which is the integration PayFast documents. The fields were signed
+ * on the server, so nothing here may be added, removed or re-ordered.
+ */
+export const redirectToHostedCheckout = (url: string, fields?: Record<string, string> | null) => {
+    if (!fields || Object.keys(fields).length === 0) {
+        window.location.assign(url);
+        return;
+    }
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    form.style.display = 'none';
+    Object.entries(fields).forEach(([name, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+};
 
 /**
  * Handler for providers that require direct card entry on our site.
@@ -31,20 +71,17 @@ class DirectCardHandler implements PaymentHandler {
         return { isValid: true };
     }
 
-    async process(orderId: string, amount: number, provider: any, checkoutUrl?: string) {
-        console.log(`Processing direct card payment for order ${orderId} via ${provider.display_name}`);
-
-        if (checkoutUrl) {
-            toast.loading(`Redirecting to secure ${provider.display_name} session...`);
-            window.location.href = checkoutUrl;
-        } else {
-            toast.success(`Processing ${provider.display_name} payment (Offline)...`);
+    async process(session: PaymentSession) {
+        if (session.checkout_url) {
+            redirectToHostedCheckout(session.checkout_url, session.checkout_fields);
+            return true;
         }
+        return false;
     }
 }
 
 /**
- * Handler for providers that redirect to an external portal.
+ * Handler for providers that redirect to an external portal (PayFast, Ozow ...).
  */
 class RedirectHandler implements PaymentHandler {
     type = 'redirect' as const;
@@ -52,21 +89,18 @@ class RedirectHandler implements PaymentHandler {
         return { isValid: true };
     }
 
-    async process(orderId: string, amount: number, provider: any, checkoutUrl?: string) {
-        console.log(`Redirecting to ${provider.display_name} portal for order ${orderId}`);
-
-        if (checkoutUrl) {
-            toast.loading(`Redirecting to ${provider.display_name}...`);
-            window.location.href = checkoutUrl;
-        } else {
-            toast.error(`Error: No redirect URL received for ${provider.display_name}.`);
+    async process(session: PaymentSession, provider: any) {
+        if (!session.checkout_url) {
+            toast.error(`${provider.display_name} is not available right now. Please choose another payment method.`);
             throw new Error("Missing checkout_url");
         }
+        redirectToHostedCheckout(session.checkout_url, session.checkout_fields);
+        return true;
     }
 }
 
 /**
- * Handler for offline methods.
+ * Handler for offline methods (cash / card machine on delivery).
  */
 class OfflineHandler implements PaymentHandler {
     type = 'offline' as const;
@@ -74,22 +108,26 @@ class OfflineHandler implements PaymentHandler {
         return { isValid: true };
     }
 
-    async process(orderId: string, amount: number, provider: any) {
-        console.log(`Offline payment via ${provider.display_name}`);
+    async process() {
+        return false; // nothing to pay now
     }
 }
+
+export const isOfflineProvider = (providerName: string = '') => {
+    const name = providerName.toLowerCase();
+    return ['delivery', 'offline', 'cash', 'cod', 'machine', 'terminal', 'pos', 'collection'].some(k => name.includes(k));
+};
 
 export const getPaymentHandler = (provider: any): PaymentHandler => {
     if (!provider) return new RedirectHandler(); // Default safety fallback
 
     const name = (provider.provider_name || '').toLowerCase();
 
-    // Logic to determine pattern
-    if (name.includes('delivery') || name.includes('offline') || name.includes('cash') || name.includes('cod') || name.includes('machine') || name.includes('terminal') || name.includes('pos') || name.includes('collection')) {
+    if (isOfflineProvider(name)) {
         return new OfflineHandler();
     }
 
-    // Stripe (now handled via Elements or Redirect) and Hosted Gateways
+    // Hosted gateways
     if (name.includes('stripe') || name.includes('hosted') || name.includes('payfast') || name.includes('ozow') || name.includes('paygate')) {
         return new RedirectHandler();
     }
@@ -99,6 +137,5 @@ export const getPaymentHandler = (provider: any): PaymentHandler => {
         return new DirectCardHandler();
     }
 
-    // Default to Redirect for other online gateways (PayFast, Ozow, etc.)
     return new RedirectHandler();
 };

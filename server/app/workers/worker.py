@@ -16,5 +16,10 @@ celery_app.conf.beat_schedule = {
     "cancel-stale-orders-every-minute": {
         "task": "app.workers.tasks.run_stale_order_cancellation",
         "schedule": 60.0,
-    }
+    },
+    # each restaurant is only messaged once per stage, so running often is safe
+    "subscription-reminders-every-6-hours": {
+        "task": "app.workers.tasks.run_subscription_reminders",
+        "schedule": 6 * 60 * 60.0,
+    },
 }

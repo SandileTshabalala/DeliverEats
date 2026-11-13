@@ -23,8 +23,8 @@ interface ProviderFormProps {
 }
 
 const ProviderForm: React.FC<ProviderFormProps> = ({ id, formData, setFormData, onSave, onCancel }) => (
-    <div className="space-y-6 bg-gray-900 border border-gold-500/30 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-300">
-        <h3 className="text-xl font-bold text-gold-500 flex items-center gap-2">
+    <div className="space-y-6 bg-gray-900 border border-brand-500/30 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-300">
+        <h3 className="text-xl font-bold text-brand-500 flex items-center gap-2">
             {id ? <Edit2 size={24} /> : <Plus size={24} />}
             {id ? 'Edit Gateway' : 'New Gateway'}
         </h3>
@@ -32,12 +32,12 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ id, formData, setFormData, 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Gateway ID (e.g. stripe)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Gateway ID (payfast, stripe, cash_delivery)</label>
                     <input
                         type="text"
                         value={formData.provider_name || ''}
                         onChange={e => setFormData({ ...formData, provider_name: e.target.value })}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 outline-none transition-all"
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-500 outline-none transition-all"
                         placeholder="Unique identifier"
                     />
                 </div>
@@ -47,7 +47,7 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ id, formData, setFormData, 
                         type="text"
                         value={formData.display_name || ''}
                         onChange={e => setFormData({ ...formData, display_name: e.target.value })}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 outline-none transition-all"
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-500 outline-none transition-all"
                         placeholder="What customer sees"
                     />
                 </div>
@@ -55,30 +55,30 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ id, formData, setFormData, 
 
             <div className="space-y-4">
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Public Key / API Key</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Public Key (PayFast: Merchant ID)</label>
                     <input
                         type="text"
                         value={formData.public_key || ''}
                         onChange={e => setFormData({ ...formData, public_key: e.target.value })}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 outline-none transition-all"
-                        placeholder="pk_test_..."
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-500 outline-none transition-all"
+                        placeholder="PayFast merchant ID or pk_test_..."
                     />
                 </div>
                 <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Secret Key / Private Key</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5 ml-1">Secret Key (PayFast: Merchant Key)</label>
                     <input
                         type="password"
                         value={formData.secret_key || ''}
                         onChange={e => setFormData({ ...formData, secret_key: e.target.value })}
-                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-gold-500 outline-none transition-all"
-                        placeholder="sk_test_..."
+                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:border-brand-500 outline-none transition-all"
+                        placeholder="Leave as is to keep the saved key"
                     />
                 </div>
             </div>
         </div>
 
         <div className="bg-gray-950 border border-gray-800 rounded-xl p-4">
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Advanced Config (JSON)</label>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Advanced Config (JSON) - PayFast: passphrase and sandbox</label>
             <textarea
                 value={formData.config ? JSON.stringify(formData.config, null, 2) : '{}'}
                 onChange={e => {
@@ -88,8 +88,8 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ id, formData, setFormData, 
                     } catch (err) { /* silent */ }
                 }}
                 rows={4}
-                className="w-full bg-transparent border-none focus:ring-0 text-xs font-mono text-gold-400 resize-none h-24"
-                placeholder='{ "merchant_id": "..." }'
+                className="w-full bg-transparent border-none focus:ring-0 text-xs font-mono text-brand-400 resize-none h-24"
+                placeholder='{ "passphrase": "...", "sandbox": true }'
             />
         </div>
 
@@ -102,7 +102,7 @@ const ProviderForm: React.FC<ProviderFormProps> = ({ id, formData, setFormData, 
             </button>
             <button
                 onClick={() => onSave(id)}
-                className="bg-gold-600 hover:bg-gold-500 text-black px-8 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-gold-600/20 active:scale-95 transition-all flex items-center gap-2"
+                className="bg-brand-600 hover:bg-brand-500 text-black px-8 py-2.5 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-brand-600/20 active:scale-95 transition-all flex items-center gap-2"
             >
                 <Save size={18} />
                 {id ? 'Update Gateway' : 'Save Gateway'}
@@ -177,7 +177,7 @@ const PaymentSettings: React.FC = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-500"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
             </div>
         );
     }
@@ -196,7 +196,7 @@ const PaymentSettings: React.FC = () => {
                             setEditingId(null);
                             setFormData({ enabled: true, is_active: true });
                         }}
-                        className="flex items-center space-x-2 bg-white hover:bg-gold-500 text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl active:scale-95 group"
+                        className="flex items-center space-x-2 bg-white hover:bg-brand-500 text-black px-6 py-3 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl active:scale-95 group"
                     >
                         <Plus size={18} className="group-hover:rotate-90 transition-transform duration-300" />
                         <span>Add Gateway</span>
@@ -229,7 +229,7 @@ const PaymentSettings: React.FC = () => {
                                 <div className="p-8">
                                     <div className="flex items-start justify-between">
                                         <div className="flex items-center space-x-6">
-                                            <div className="w-16 h-16 bg-gray-950 border border-gray-800 rounded-2xl flex items-center justify-center text-gold-500 shadow-inner group-hover:scale-110 transition-transform duration-500">
+                                            <div className="w-16 h-16 bg-gray-950 border border-gray-800 rounded-2xl flex items-center justify-center text-brand-500 shadow-inner group-hover:scale-110 transition-transform duration-500">
                                                 <Shield size={32} />
                                             </div>
                                             <div>
@@ -265,7 +265,7 @@ const PaymentSettings: React.FC = () => {
                                                     setIsAdding(false);
                                                     setFormData(provider);
                                                 }}
-                                                className="p-3 bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gold-500/50 rounded-2xl transition-all"
+                                                className="p-3 bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-brand-500/50 rounded-2xl transition-all"
                                             >
                                                 <Edit2 size={20} />
                                             </button>
@@ -293,8 +293,8 @@ const PaymentSettings: React.FC = () => {
                                         </div>
                                         <div className="space-y-1">
                                             <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 block">Environment</span>
-                                            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-400">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></div>
+                                            <div className="flex items-center gap-1.5 text-xs font-bold text-brand-400">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse"></div>
                                                 Development
                                             </div>
                                         </div>
@@ -326,7 +326,7 @@ const PaymentSettings: React.FC = () => {
                                 setIsAdding(true);
                                 setFormData({ provider_name: '', display_name: '', enabled: true, is_active: true });
                             }}
-                            className="mt-6 text-gold-500 hover:text-gold-400 font-bold flex items-center space-x-2 mx-auto transition-colors"
+                            className="mt-6 text-brand-500 hover:text-brand-400 font-bold flex items-center space-x-2 mx-auto transition-colors"
                         >
                             <Plus size={20} />
                             <span>Configure your first gateway</span>

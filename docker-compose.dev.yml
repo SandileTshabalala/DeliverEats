@@ -16,7 +16,9 @@ services:
     build:
       context: ./server
       dockerfile: Dockerfile.dev
-    command: celery -A app.workers.worker worker -l info
+    # -Q: the queue the tasks are routed to.  -B: also run the scheduler (beat)
+    # that cancels unpaid / stale orders every minute. Run only ONE container with -B.
+    command: celery -A app.workers.worker worker -B -Q lvovo_queue -l info
     env_file: ./server/.env.dev
     volumes:
       - ./server:/app

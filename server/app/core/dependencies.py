@@ -3,14 +3,14 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 from app.core.roles import Role
 from app.models.user import User
-from app.core.cache import get_cache, set_cache
 
 
 # OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
 # Database dependency
 def get_db() -> Generator:
@@ -27,7 +27,13 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> User:
-    """Dependency to get the current authenticated user"""
+    """
+    Dependency to get the current authenticated user.
+
+    Always loads the user from the database with the request's session, so the
+    object is attached (relationships work) and a deactivated account or a role
+    change takes effect immediately.
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -40,38 +46,29 @@ async def get_current_user(
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM]
         )
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    # 1. Check Cache
-    cache_key = f"user:{user_id}"
-    cached_user = await get_cache(cache_key)
-    if cached_user:
-        # If we cached the ORM object or dict, we might need to attach it to session if needed for lazy loading
-        # But for basic auth checks, the cached object is fine.
-        # However, usually we cache a dict. If `set_cache` pickles, it might be an object detached from session.
-        # If we need it attached, we merge. For performance, let's return the object.
-        # If `User` has relationships accessed later, this might fail if detached.
-        # But `set_cache` implementation (pickle) usually preserves state but detaches.
-        # Safest is to `db.merge(cached_user)` if we need it in session, but that hits DB? No, merge is local if key exists?
-        # Actually `merge` checks DB if not in identity map.
-        # Let's assume for now we return the object. If we hit "detached instance" errors, we fix.
-        return cached_user
-
-    # 2. DB Fallback
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
+    user_id = payload.get("sub")
+    if user_id is None or payload.get("type") != "access":
         raise credentials_exception
-    
-    # 3. Cache it (TTL Should match session heavily or be short, e.g. 5 mins)
-    await set_cache(cache_key, user, ttl=300)
-    
+
+    # Honour logout: access tokens are blacklisted in Redis until they expire.
+    from app.core.security import is_token_blacklisted
+    if await is_token_blacklisted(token):
+        raise credentials_exception
+
+    user = await run_in_threadpool(
+        lambda: db.query(User).filter(User.id == user_id).first()
+    )
+    if user is None or not user.is_active:
+        raise credentials_exception
+
     return user
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Roles that may use every role-protected endpoint.
+PRIVILEGED_ROLES = (Role.SUPER_ADMIN, Role.ADMIN)
 
 
 def require_role(*allowed_roles: Role, use_db: bool = True):
@@ -85,7 +82,7 @@ def require_role(*allowed_roles: Role, use_db: bool = True):
     """
 
     def checker_db(current_user: User = Depends(get_current_user)):
-        if current_user.role not in allowed_roles and current_user.role != Role.ADMIN:
+        if current_user.role not in allowed_roles and current_user.role not in PRIVILEGED_ROLES:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not enough permissions"
@@ -94,12 +91,12 @@ def require_role(*allowed_roles: Role, use_db: bool = True):
 
     def checker_jwt(token: str = Depends(oauth2_scheme)):
         try:
-            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
-        except jwt.JWTError:
+            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        except JWTError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
         role = payload.get("role")
-        if role not in [r.value for r in allowed_roles] and role != Role.ADMIN.value:
+        if role not in [r.value for r in allowed_roles] and role not in [r.value for r in PRIVILEGED_ROLES]:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
         return payload

@@ -235,3 +235,55 @@ docker-compose -f docker-compose.prod.yml up --build
 ## License
 
 MIT License - see LICENSE file for details
+
+## Payments (PayFast)
+
+Customers can pay online with PayFast (card, Instant EFT, SnapScan and more) or choose cash / card on delivery.
+
+1. Copy `server/.env.example` to `server/.env.dev` and fill in `PAYFAST_MERCHANT_ID`, `PAYFAST_MERCHANT_KEY` and `PAYFAST_PASSPHRASE` (sandbox credentials come from https://sandbox.payfast.co.za). Keep `PAYFAST_SANDBOX=true` until you go live.
+2. Set `FRONTEND_URL` to where the web app runs and `PUBLIC_API_URL` to an address PayFast can reach from the internet. In development start a tunnel (for example `ngrok http 8000`) and use its https URL.
+3. Restart the server. A "PayFast" payment method is created and switched on automatically. It can also be configured in Admin > Payments (public key = merchant id, secret key = merchant key, config = `{"passphrase": "...", "sandbox": true}`).
+
+How it works: the server creates the order and prices it from the menu, signs the PayFast form, and the browser posts it to PayFast. PayFast then calls `POST /api/v1/payments/payfast/notify`; the server checks the signature, the amount and confirms the notification with PayFast before marking the order as paid. Only paid orders (or pay-on-delivery orders) can be accepted by a restaurant.
+
+Tests for the signing and validation logic: `cd server && python -m pytest tests/test_payfast.py`.
+
+## Colours
+
+The palette lives in `client/src/index.css` (`brand-*` = ember orange, `gray-*` = warm charcoal). Change the values there to re-theme the whole app.
+
+## How the money works
+
+- **Order money goes to the restaurant.** Each restaurant chooses its methods in Restaurant > Settings: cash on delivery, its own card machine on delivery, or its own PayFast account. The platform never holds order money.
+- **Restaurants pay the platform a subscription.** The platform owner creates plans in Admin > Subscriptions (price, billing period, free trial, monthly order limit). Restaurants pay by PayFast recurring billing into the platform account (`PAYFAST_*` in the env file) or by EFT/cash that the admin records.
+- Subscriptions only block anything once `SUBSCRIPTIONS_ENFORCED=true`.
+- **Each restaurant sets its own delivery fee** in Restaurant > Settings: a base fee, an optional charge per km, optional free delivery from an order amount, and an optional maximum distance. Distance is measured from the shop's saved location to the customer's address (straight line x 1.3 to approximate roads). The cart shows the fee before the customer pays, and `POST /api/v1/orders/quote` returns it. `DELIVERY_FEE` in the env file is only the default for restaurants that have not set one.
+
+## Notifications
+
+SMS goes through Africa's Talking and email through Resend. Fill in `AT_*`, `RESEND_API_KEY` and `EMAIL_FROM` in the env file; with those empty, messages are only written to the log. After signing in as the platform admin, `POST /api/v1/notifications/test` sends a test SMS and email to yourself.
+
+| Event | Who | SMS | Email |
+|---|---|---|---|
+| New paid / pay-on-delivery order | Restaurant owner | yes | yes |
+| Order accepted | Customer | yes | |
+| Delivery assigned | Driver | yes | |
+| Order on its way | Customer | yes | |
+| Order delivered | Customer | | receipt |
+| Order cancelled | Customer (and driver) | yes | yes |
+| Online payment received | Customer | | yes |
+| Subscription paid | Restaurant owner | | yes |
+| Plan ending / overdue / closed | Restaurant owner | yes | yes |
+| Password reset | The user | | yes |
+
+## Running in production
+
+1. Copy `server/.env.example` to `server/.env.prod` and fill it in. Use new values for `JWT_SECRET_KEY` and the database password, set `ENCRYPTION_KEY`, and set `CORS_ORIGINS`, `FRONTEND_URL` and `PUBLIC_API_URL` to `https://your-domain`.
+2. Point the domain's DNS at the server.
+3. `DOMAIN=your-domain docker compose -f docker-compose.prod.yml up -d --build`
+
+This starts the API (one process), the background worker with its scheduler, Redis, and Caddy, which serves the built web app, forwards `/api` to the API and manages the HTTPS certificate. Env files are no longer tracked by git; never commit them.
+
+## Tests
+
+`cd server && python -m pytest` runs the whole API against a temporary SQLite database and an in-memory Redis: no services or network needed.

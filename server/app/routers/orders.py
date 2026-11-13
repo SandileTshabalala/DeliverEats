@@ -1,21 +1,37 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload, selectinload
-from typing import Literal
+from sqlalchemy.orm import Session
 
-from app.schemas.order import OrderCreate, OrderRead
-from app.services.order_service import (
-    create_order,
-    lock_order,
-    assign_driver,
-    update_order_status
-)
+from app.core.dependencies import get_db, require_role
+from app.core.tenancy import manages_restaurant
 from app.core.roles import Role
-from app.core.dependencies import get_db, require_role, get_current_user
 from app.models.order import Order
+from app.schemas.order import OrderCreate, OrderQuote, OrderRead
+from app.services.order_service import (
+    ORDER_LOAD_OPTIONS,
+    assign_driver,
+    broadcast_order,
+    create_order,
+    get_order,
+    lock_order,
+    price_order,
+    update_order_status,
+)
 from app.utils.OrderStatus import OrderStatus
-from datetime import datetime, timezone
 
 router = APIRouter(tags=["Orders"])
+
+
+def get_order_for_restaurant_user(db: Session, order_id: str, user) -> Order:
+    """Load an order and make sure it belongs to a restaurant this user runs."""
+    order = get_order(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if not manages_restaurant(db, user, order.restaurant_id):
+        # 404 rather than 403 so order ids of other shops cannot be probed
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
+
 
 # ----------------------------
 # CREATE NEW ORDER
@@ -24,13 +40,30 @@ router = APIRouter(tags=["Orders"])
 def new_order(
     payload: OrderCreate,
     db: Session = Depends(get_db),
-    user = Depends(require_role(Role.CUSTOMER))
+    user=Depends(require_role(Role.CUSTOMER))
 ):
     """
-    Customer creates a new order.
+    Customer creates a new order. The customer is taken from the token and the
+    total is calculated on the server from the menu prices.
     """
-    order = create_order(db, user.id, payload.restaurant_id, payload.items, payload.total, payload.address_id)
-    return order
+    return create_order(db, user.id, payload.restaurant_id, payload.items, payload.address_id)
+
+
+# ----------------------------
+# PRICE A BASKET (cart preview)
+# ----------------------------
+@router.post("/quote", response_model=OrderQuote)
+def quote_order(
+    payload: OrderCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.CUSTOMER))
+):
+    """
+    What this basket would cost, including the restaurant's delivery fee to the
+    chosen address. Creates nothing. Uses exactly the same pricing as placing the order.
+    """
+    return price_order(db, user.id, payload.restaurant_id, payload.items, payload.address_id)
+
 
 # ----------------------------
 # ACCEPT ORDER BY RESTAURANT
@@ -43,40 +76,39 @@ def accept_order(
 ):
     """
     Restaurant accepts the order.
-    If drivers exist → assign
-    If not → wait for driver
+    If a driver is free -> assigned and the order moves to "preparing".
+    If not -> the order waits for a driver.
     """
+    order = get_order_for_restaurant_user(db, order_id, user)
 
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(status_code=409, detail="Order already processed")
 
-    # 🔒 Prevent double acceptance
+    if not order.is_payment_cleared:
+        raise HTTPException(
+            status_code=409,
+            detail="This order has not been paid yet. It can be accepted once payment is confirmed."
+        )
+
+    # Prevent double acceptance
     if not lock_order(db, order_id):
         raise HTTPException(status_code=409, detail="Order already accepted")
 
-    if order.status != OrderStatus.PENDING:
-        raise HTTPException(status_code=400, detail="Order already processed")
+    try:
+        assign_driver(db, order_id)
+    except Exception:
+        # Do not leave the order locked forever if assignment blew up
+        db.rollback()
+        db.query(Order).filter(Order.id == order_id).update({"locked": False, "locked_at": None})
+        db.commit()
+        raise
 
-    driver = assign_driver(db, order_id)
+    db.expire_all()
+    return get_order(db, order_id)
 
-    if driver:
-        order.status = OrderStatus.PREPARING
-    # If no driver found, order status is updated to WAITING_FOR_DRIVER in assign_driver
-    # We do NOT raise 404 anymore.
-
-    db.commit() # Commit the status change made by assign_driver or the PREPARING status
-
-    order = db.query(Order).options(
-        joinedload(Order.customer),
-        joinedload(Order.driver),
-        joinedload(Order.restaurant),
-        joinedload(Order.items)
-    ).filter(Order.id == order_id).first()
-    return order
 
 # ----------------------------
-# UPDATE ORDER STATUS
+# UPDATE ORDER STATUS (restaurant)
 # ----------------------------
 @router.post("/{order_id}/status")
 def change_status(
@@ -92,26 +124,43 @@ def change_status(
         OrderStatus.CANCELLED
     }
 
-    # ✅ Validate first
     if status not in ALLOWED_RESTAURANT_STATUSES:
+        raise HTTPException(status_code=403, detail="Invalid status for restaurant")
+
+    order = get_order_for_restaurant_user(db, order_id, user)
+
+    if status != OrderStatus.CANCELLED and not order.is_payment_cleared:
+        raise HTTPException(status_code=409, detail="This order has not been paid yet")
+
+    order = update_order_status(db, order_id, status, order=order)
+    return {"order_id": order.id, "status": order.status}
+
+
+# ----------------------------
+# CUSTOMER: CANCEL OWN ORDER
+# ----------------------------
+@router.post("/{order_id}/cancel", response_model=OrderRead)
+def cancel_my_order(
+    order_id: str,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.CUSTOMER))
+):
+    """A customer may cancel only while the restaurant has not accepted yet."""
+    order = get_order(db, order_id)
+    if not order or order.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.PENDING:
+        raise HTTPException(status_code=409, detail="The restaurant has already started on this order")
+    if order.payment_status == "completed":
         raise HTTPException(
-            status_code=403,
-            detail="Invalid status for restaurant"
+            status_code=409,
+            detail="This order is already paid. Please contact the restaurant to cancel and refund it."
         )
-
-    # ✅ Then update
-    order = update_order_status(db, order_id, status)
-    if not order:
-        raise HTTPException(
-            status_code=404,
-            detail="Order not found"
-        )
-
-    return {
-        "order_id": order.id,
-        "status": order.status
-    }
-
+    update_order_status(db, order_id, OrderStatus.CANCELLED, order=order)
+    db.expire_all()
+    order = get_order(db, order_id)
+    broadcast_order(order)
+    return order
 
 
 # ----------------------------
@@ -120,41 +169,28 @@ def change_status(
 @router.get("/driver/jobs", response_model=list[OrderRead])
 def driver_jobs(
     db: Session = Depends(get_db),
-    user = Depends(require_role(Role.DRIVER))
+    user=Depends(require_role(Role.DRIVER))
 ):
-    """
-    Driver sees all assigned orders that are not delivered/cancelled.
-    """
-    orders = db.query(Order).options(
-        joinedload(Order.customer),
-        joinedload(Order.driver),
-        joinedload(Order.restaurant),
-        joinedload(Order.items)
-    ).filter(
+    """Driver sees all assigned orders that are not delivered/cancelled."""
+    return db.query(Order).options(*ORDER_LOAD_OPTIONS).filter(
         Order.driver_id == user.id,
-        Order.status.notin_(["delivered","cancelled"])
-    ).all()
-    return orders
+        Order.status.notin_([OrderStatus.DELIVERED, OrderStatus.CANCELLED])
+    ).order_by(Order.created_at.asc()).all()
+
 
 @router.get("/driver/history", response_model=list[OrderRead])
 def driver_history(
     limit: int = 50,
     offset: int = 0,
     db: Session = Depends(get_db),
-    user = Depends(require_role(Role.DRIVER))
+    user=Depends(require_role(Role.DRIVER))
 ):
-    """
-    Driver sees ALL assigned orders (history).
-    """
-    orders = db.query(Order).options(
-        joinedload(Order.customer),
-        joinedload(Order.driver),
-        joinedload(Order.restaurant),
-        selectinload(Order.items)
-    ).filter(
+    """Driver sees ALL assigned orders (history)."""
+    limit = max(1, min(limit, 100))
+    return db.query(Order).options(*ORDER_LOAD_OPTIONS).filter(
         Order.driver_id == user.id
-    ).order_by(Order.created_at.desc()).offset(offset).limit(limit).all()
-    return orders
+    ).order_by(Order.created_at.desc()).offset(max(0, offset)).limit(limit).all()
+
 
 # ----------------------------
 # CUSTOMER VIEW: GET MY ORDERS
@@ -164,15 +200,10 @@ def my_orders(
     limit: int = 20,
     offset: int = 0,
     db: Session = Depends(get_db),
-    user = Depends(require_role(Role.CUSTOMER))
+    user=Depends(require_role(Role.CUSTOMER))
 ):
-    """
-    Customer sees all their orders.
-    """
-    orders = db.query(Order).options(
-        joinedload(Order.customer),
-        joinedload(Order.driver),
-        joinedload(Order.restaurant),
-        selectinload(Order.items)
-    ).filter(Order.customer_id == user.id).order_by(Order.created_at.desc()).offset(offset).limit(limit).all()
-    return orders
+    """Customer sees all their orders."""
+    limit = max(1, min(limit, 100))
+    return db.query(Order).options(*ORDER_LOAD_OPTIONS).filter(
+        Order.customer_id == user.id
+    ).order_by(Order.created_at.desc()).offset(max(0, offset)).limit(limit).all()

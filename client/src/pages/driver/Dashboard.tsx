@@ -77,15 +77,15 @@ const DriverDashboard = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-500"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
             </div>
         );
     }
 
     const stats = [
-        { label: 'Today\'s Deliveries', value: statsData?.today_deliveries || 0, icon: Truck, color: 'text-gold-500', bg: 'bg-gold-500/10' },
+        { label: 'Today\'s Deliveries', value: statsData?.today_deliveries || 0, icon: Truck, color: 'text-brand-500', bg: 'bg-brand-500/10' },
         { label: 'Completed', value: statsData?.completed_deliveries || 0, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
-        { label: 'Earnings', value: `R ${statsData?.total_earnings?.toFixed(2) || '0.00'}`, icon: TrendingUp, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+        { label: 'Earnings', value: `R ${statsData?.total_earnings?.toFixed(2) || '0.00'}`, icon: TrendingUp, color: 'text-brand-500', bg: 'bg-brand-500/10' },
         { label: 'Reliability', value: `${statsData?.reliability_score || 0}%`, icon: Clock, color: 'text-purple-500', bg: 'bg-purple-500/10' },
     ];
 
@@ -124,7 +124,7 @@ const DriverDashboard = () => {
                             "px-8 py-4 rounded-2xl font-bold transition-all flex items-center justify-center space-x-3 min-w-[180px]",
                             profile?.is_available
                                 ? "bg-gray-800 hover:bg-gray-700 text-white"
-                                : "bg-gold-500 hover:bg-gold-600 text-black shadow-xl shadow-gold-500/20"
+                                : "bg-brand-500 hover:bg-brand-600 text-black shadow-xl shadow-brand-500/20"
                         )}
                     >
                         {isToggling ? (
@@ -166,10 +166,10 @@ const DriverDashboard = () => {
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h3 className="text-xl font-bold text-white flex items-center space-x-2">
-                        <Navigation size={20} className="text-gold-500" />
+                        <Navigation size={20} className="text-brand-500" />
                         <span>Active Orders</span>
                     </h3>
-                    <button className="text-sm text-gold-500 hover:underline font-medium">View History</button>
+                    <button className="text-sm text-brand-500 hover:underline font-medium">View History</button>
                 </div>
 
                 {jobs.length === 0 ? (
@@ -185,7 +185,7 @@ const DriverDashboard = () => {
                         {jobs.map((job) => (
                             <div key={job.id} className="p-6 bg-gray-900/40 border border-gray-800 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 bg-gold-500/10 rounded-2xl flex items-center justify-center text-gold-500 font-bold">
+                                    <div className="w-12 h-12 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-500 font-bold">
                                         #{job.id.slice(-4)}
                                     </div>
                                     <div>
@@ -194,7 +194,7 @@ const DriverDashboard = () => {
                                             <MapPin size={12} />
                                             <span>{job.address?.suburb || '2.4 km away'}</span>
                                             <span>•</span>
-                                            <span className="uppercase text-gold-500 font-bold">{job.status.replace('_', ' ')}</span>
+                                            <span className="uppercase text-brand-500 font-bold">{job.status.replace('_', ' ')}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -204,7 +204,7 @@ const DriverDashboard = () => {
                                     {job.status === 'ready' && (
                                         <button
                                             onClick={() => handleUpdateStatus(job.id, 'picked_up')}
-                                            className="px-4 py-2 bg-gold-500 hover:bg-gold-600 text-black rounded-xl text-sm font-bold transition-all shadow-lg shadow-gold-500/20"
+                                            className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-black rounded-xl text-sm font-bold transition-all shadow-lg shadow-brand-500/20"
                                         >
                                             Pick Up Order
                                         </button>

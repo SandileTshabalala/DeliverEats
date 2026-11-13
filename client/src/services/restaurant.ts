@@ -34,6 +34,18 @@ export const restaurantService = {
         }
     },
 
+    /** The restaurant that belongs to the signed-in restaurant admin. */
+    getMyRestaurant: async (): Promise<Restaurant> => {
+        const res = await api.get("/restaurant/mine");
+        return res.data;
+    },
+
+    /** Owner view of the menu: includes items that are switched off. */
+    getManageMenu: async (restaurantId: string): Promise<MenuItem[]> => {
+        const res = await api.get(`/menus/restaurant/${restaurantId}/manage`);
+        return res.data;
+    },
+
     getMenu: async (restaurantId: string): Promise<MenuItem[]> => {
         const res = await api.get(`/menus/restaurant/${restaurantId}`);
         return res.data;

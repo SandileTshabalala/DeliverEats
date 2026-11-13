@@ -45,7 +45,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
             <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden transform animate-in zoom-in duration-200">
                 <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between bg-gray-900/50">
                     <div className="flex items-center space-x-2">
-                        <div className="p-2 bg-gold-500/10 rounded-lg text-gold-500">
+                        <div className="p-2 bg-brand-500/10 rounded-lg text-brand-500">
                             <Truck size={20} />
                         </div>
                         <h2 className="text-xl font-bold text-white">Add New Driver</h2>
@@ -62,7 +62,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                             <input
                                 required
                                 type="text"
-                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-gold-500 outline-none"
+                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-brand-500 outline-none"
                                 value={formData.name}
                                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                             />
@@ -72,7 +72,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                             <input
                                 required
                                 type="text"
-                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-gold-500 outline-none"
+                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-brand-500 outline-none"
                                 value={formData.sur_name}
                                 onChange={e => setFormData({ ...formData, sur_name: e.target.value })}
                             />
@@ -84,7 +84,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                         <input
                             required
                             type="email"
-                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-gold-500 outline-none"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-brand-500 outline-none"
                             value={formData.email}
                             onChange={e => setFormData({ ...formData, email: e.target.value })}
                         />
@@ -95,7 +95,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                         <input
                             required
                             type="password"
-                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-gold-500 outline-none"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-brand-500 outline-none"
                             value={formData.password}
                             onChange={e => setFormData({ ...formData, password: e.target.value })}
                         />
@@ -106,7 +106,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                         <input
                             required
                             type="tel"
-                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-gold-500 outline-none"
+                            className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-brand-500 outline-none"
                             value={formData.contact_number}
                             onChange={e => setFormData({ ...formData, contact_number: e.target.value })}
                         />
@@ -116,7 +116,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                         <div className="space-y-1.5">
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Vehicle Type</label>
                             <select
-                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-gold-500 outline-none"
+                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-brand-500 outline-none"
                                 value={formData.vehicle_type}
                                 onChange={e => setFormData({ ...formData, vehicle_type: e.target.value })}
                             >
@@ -129,7 +129,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Vehicle Number</label>
                             <input
                                 type="text"
-                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-gold-500 outline-none"
+                                className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2 text-white focus:ring-1 focus:ring-brand-500 outline-none"
                                 value={formData.vehicle_number}
                                 onChange={e => setFormData({ ...formData, vehicle_number: e.target.value })}
                                 placeholder="Optional"
@@ -148,7 +148,7 @@ const AddDriverModal: React.FC<AddDriverModalProps> = ({ isOpen, onClose, onSucc
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex-1 px-4 py-2.5 bg-gold-500 hover:bg-gold-600 disabled:bg-gold-500/50 text-black font-bold rounded-xl transition-all shadow-lg shadow-gold-500/10 flex items-center justify-center space-x-2"
+                            className="flex-1 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:bg-brand-500/50 text-black font-bold rounded-xl transition-all shadow-lg shadow-brand-500/10 flex items-center justify-center space-x-2"
                         >
                             {loading ? <Loader2 size={20} className="animate-spin" /> : <span>Create Driver</span>}
                         </button>

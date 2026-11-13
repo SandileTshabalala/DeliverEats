@@ -84,9 +84,9 @@ async def update_menu_item(db: Session, item_id: str, payload: dict):
         if not item:
             return None
         
-        for key, value in payload.items():
-            if hasattr(item, key):
-                setattr(item, key, value)
+        for key in ("name", "description", "price", "image_url", "is_available"):
+            if key in payload:
+                setattr(item, key, payload[key])
                 
         db.commit()
         db.refresh(item)
@@ -110,16 +110,35 @@ async def delete_menu_item(db: Session, item_id: str):
         if not item:
             return None
         menu_id = item.menu_id
+        # Past orders point at this item. Deleting it would fail on the foreign
+        # key (500 error), so an item that has been ordered is hidden instead.
+        from app.models.order_item import OrderItem
+        if db.query(OrderItem).filter(OrderItem.menu_item_id == item_id).first():
+            item.is_available = False
+            db.commit()
+            return menu_id, "hidden"
         db.delete(item)
         db.commit()
-        return menu_id
+        return menu_id, "deleted"
 
-    menu_id = await run_in_threadpool(delete_sync)
-    if not menu_id:
+    result = await run_in_threadpool(delete_sync)
+    if not result:
         return False
-    
+    menu_id, outcome = result
+
     # Invalidate cache
     key = f"menu:{menu_id}:items"
     await delete_cache(key)
-    
-    return True
+
+    return outcome
+
+
+def get_all_restaurant_items(db: Session, restaurant_id: str):
+    """Every item of a restaurant, available or not (for the owner menu screen)."""
+    return (
+        db.query(MenuItem)
+        .join(Menu, MenuItem.menu_id == Menu.id)
+        .filter(Menu.restaurant_id == restaurant_id)
+        .order_by(MenuItem.name.asc())
+        .all()
+    )

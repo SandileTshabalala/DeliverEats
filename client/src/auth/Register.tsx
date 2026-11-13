@@ -60,7 +60,7 @@ const Register = () => {
   return (
     <div className="min-h-screen bg-gray-950 flex font-sans overflow-hidden">
       {/* Left Side: Illustration & Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-blue-600 relative overflow-hidden items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-brand-600 relative overflow-hidden items-center justify-center p-12">
         <div className="absolute inset-0 opacity-20 pointer-events-none">
           <div className="absolute top-[-10%] left-[-10%] w-full h-full bg-[radial-gradient(circle,white_1px,transparent_1px)] bg-size-[:40px_40px]"></div>
         </div>
@@ -76,9 +76,9 @@ const Register = () => {
           <div className="space-y-4">
             <h2 className="text-5xl font-black leading-tight tracking-tighter uppercase">
               Join our community <br />
-              <span className="text-blue-200">of food lovers.</span>
+              <span className="text-brand-200">of food lovers.</span>
             </h2>
-            <p className="text-blue-100/80 text-lg leading-relaxed font-medium">
+            <p className="text-brand-100/80 text-lg leading-relaxed font-medium">
               Discover the best street food in Matafini. Quick delivery, fresh ingredients, and unforgettable taste.
             </p>
           </div>
@@ -90,25 +90,25 @@ const Register = () => {
             ].map((stat, i) => (
               <div key={i} className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-xl">
                 <p className="text-3xl font-black leading-none mb-1">{stat.label}</p>
-                <p className="text-blue-100/60 text-xs font-bold uppercase tracking-widest">{stat.sub}</p>
+                <p className="text-brand-100/60 text-xs font-bold uppercase tracking-widest">{stat.sub}</p>
               </div>
             ))}
           </div>
         </div>
 
         {/* Decorative blob */}
-        <div className="absolute bottom-[-20%] right-[-10%] w-125 h-125 bg-blue-400 rounded-full blur-[120px] opacity-30 animate-pulse"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-125 h-125 bg-brand-400 rounded-full blur-[120px] opacity-30 animate-pulse"></div>
       </div>
 
       {/* Right Side: Registration Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 relative">
         {/* Backdrop glow for mobile */}
-        <div className="lg:hidden absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-blue-600 rounded-full blur-[100px] opacity-20 pointer-events-none"></div>
+        <div className="lg:hidden absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-brand-600 rounded-full blur-[100px] opacity-20 pointer-events-none"></div>
 
         <div className="w-full max-w-md space-y-8 animate-in slide-in-from-bottom-8 duration-500">
           <div>
             <Link to="/" className="lg:hidden flex items-center space-x-2 mb-8">
-              <Utensils className="w-8 h-8 text-blue-500" />
+              <Utensils className="w-8 h-8 text-brand-500" />
               <span className="text-2xl font-black tracking-tighter uppercase text-white">L'vovo</span>
             </Link>
             <h3 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">Create Account</h3>
@@ -119,7 +119,7 @@ const Register = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center space-x-2">
-                  <User size={14} className="text-blue-500" />
+                  <User size={14} className="text-brand-500" />
                   <span>First Name</span>
                 </label>
                 <input
@@ -128,13 +128,13 @@ const Register = () => {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-600 font-medium"
+                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all placeholder-gray-600 font-medium"
                   placeholder="John"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center space-x-2">
-                  <User size={14} className="text-blue-500" />
+                  <User size={14} className="text-brand-500" />
                   <span>Last Name</span>
                 </label>
                 <input
@@ -143,7 +143,7 @@ const Register = () => {
                   required
                   value={formData.sur_name}
                   onChange={handleChange}
-                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-600 font-medium"
+                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all placeholder-gray-600 font-medium"
                   placeholder="Doe"
                 />
               </div>
@@ -151,7 +151,7 @@ const Register = () => {
 
             <div className="space-y-2">
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center space-x-2">
-                <Mail size={14} className="text-blue-500" />
+                <Mail size={14} className="text-brand-500" />
                 <span>Email Address</span>
               </label>
               <input
@@ -160,14 +160,14 @@ const Register = () => {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-600 font-medium"
+                className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all placeholder-gray-600 font-medium"
                 placeholder="john@example.com"
               />
             </div>
 
             <div className="space-y-2">
               <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center space-x-2">
-                <Phone size={14} className="text-blue-500" />
+                <Phone size={14} className="text-brand-500" />
                 <span>Contact Number</span>
               </label>
               <input
@@ -176,7 +176,7 @@ const Register = () => {
                 required
                 value={formData.contact_number}
                 onChange={handleChange}
-                className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-600 font-medium"
+                className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all placeholder-gray-600 font-medium"
                 placeholder="+27 12 345 6789"
               />
             </div>
@@ -184,7 +184,7 @@ const Register = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center space-x-2">
-                  <Lock size={14} className="text-blue-500" />
+                  <Lock size={14} className="text-brand-500" />
                   <span>Password</span>
                 </label>
                 <input
@@ -193,13 +193,13 @@ const Register = () => {
                   required
                   value={formData.password}
                   onChange={handleChange}
-                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-600 font-medium"
+                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all placeholder-gray-600 font-medium"
                   placeholder="••••••••"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-black text-gray-400 uppercase tracking-widest flex items-center space-x-2">
-                  <Lock size={14} className="text-blue-500" />
+                  <Lock size={14} className="text-brand-500" />
                   <span>Confirm</span>
                 </label>
                 <input
@@ -208,7 +208,7 @@ const Register = () => {
                   required
                   value={formData.confirmPassword}
                   onChange={handleChange}
-                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-600 font-medium"
+                  className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500 transition-all placeholder-gray-600 font-medium"
                   placeholder="••••••••"
                 />
               </div>
@@ -218,7 +218,7 @@ const Register = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center space-x-3 group"
+                className="w-full bg-brand-600 hover:bg-brand-500 text-white py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-brand-600/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center space-x-3 group"
               >
                 {isSubmitting ? (
                   <>
@@ -238,7 +238,7 @@ const Register = () => {
           <div className="pt-8 text-center">
             <p className="text-gray-500 font-bold">
               Already have an account?{' '}
-              <Link to="/login" className="text-blue-500 hover:text-blue-400 transition-colors uppercase tracking-widest text-sm">
+              <Link to="/login" className="text-brand-500 hover:text-brand-400 transition-colors uppercase tracking-widest text-sm">
                 Sign In
               </Link>
             </p>

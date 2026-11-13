@@ -1,0 +1,10 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+*.log
+server/env/
+server/.env.dev
+server/.env.prod
+client/.env.dev
+client/.env.prod

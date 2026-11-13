@@ -84,7 +84,7 @@ const Users = () => {
                 <div className="relative">
                     <button
                         onClick={() => setIsAddMenuOpen(!isAddMenuOpen)}
-                        className="flex items-center space-x-2 px-4 py-2.5 bg-gold-500 hover:bg-gold-600 text-black font-bold rounded-xl transition-all shadow-lg shadow-gold-500/10"
+                        className="flex items-center space-x-2 px-4 py-2.5 bg-brand-500 hover:bg-brand-600 text-black font-bold rounded-xl transition-all shadow-lg shadow-brand-500/10"
                     >
                         <UserPlus size={18} />
                         <span className="text-white ">Add New Account</span>
@@ -98,7 +98,7 @@ const Users = () => {
                                     onClick={() => { setActiveModal('driver'); setIsAddMenuOpen(false); }}
                                     className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                                 >
-                                    <Truck size={18} className="text-gold-500" />
+                                    <Truck size={18} className="text-brand-500" />
                                     <div className="text-left">
                                         <p className="font-bold">New Driver</p>
                                         <p className="text-[10px] text-gray-500">Create driver & profile</p>
@@ -108,7 +108,7 @@ const Users = () => {
                                     onClick={() => { setActiveModal('restaurant'); setIsAddMenuOpen(false); }}
                                     className="w-full flex items-center space-x-3 px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
                                 >
-                                    <Store size={18} className="text-blue-400" />
+                                    <Store size={18} className="text-brand-400" />
                                     <div className="text-left">
                                         <p className="font-bold">New Restaurant</p>
                                         <p className="text-[10px] text-gray-500">Create restaurant & admin</p>
@@ -133,13 +133,13 @@ const Users = () => {
             {/* Filters & Search */}
             <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-gold-500 transition-colors" size={20} />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-brand-500 transition-colors" size={20} />
                     <input
                         type="text"
                         placeholder="Search users by name, email..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-gray-900/50 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 focus:ring-1 focus:ring-gold-500 focus:border-gold-500 outline-none transition-all placeholder-gray-600"
+                        className="w-full bg-gray-900/50 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-600"
                     />
                 </div>
                 <button className="flex items-center space-x-2 px-4 py-2.5 bg-gray-900/50 border border-gray-800 text-gray-400 hover:text-white hover:border-gray-700 rounded-xl transition-all">
@@ -195,7 +195,7 @@ const Users = () => {
                                         >
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center space-x-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-gray-800 to-gray-700 flex items-center justify-center text-gold-500 font-bold">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-gray-800 to-gray-700 flex items-center justify-center text-brand-500 font-bold">
                                                         {user.name.charAt(0)}
                                                     </div>
                                                     <div>
@@ -207,8 +207,8 @@ const Users = () => {
                                             <td className="px-6 py-4">
                                                 <span className={clsx(
                                                     "inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                                                    user.role === 'super_admin' ? "bg-gold-500/10 text-gold-500" :
-                                                        user.role === 'restaurant_admin' ? "bg-blue-500/10 text-blue-400" :
+                                                    user.role === 'super_admin' ? "bg-brand-500/10 text-brand-500" :
+                                                        user.role === 'restaurant_admin' ? "bg-brand-500/10 text-brand-400" :
                                                             "bg-gray-700 text-gray-300"
                                                 )}>
                                                     {user.role}
@@ -238,7 +238,7 @@ const Users = () => {
                                                     <>
                                                         <div className="fixed inset-0 z-40" onClick={() => setIsActionsOpen(null)}></div>
                                                         <div className="absolute right-6 top-12 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in duration-200">
-                                                            <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-gold-500 transition-colors">
+                                                            <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-brand-500 transition-colors">
                                                                 <Shield size={16} />
                                                                 <span>Edit Permissions</span>
                                                             </button>

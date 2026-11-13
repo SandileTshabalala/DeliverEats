@@ -45,7 +45,7 @@ const AdminLayout = () => {
               <Menu size={20} />
             </button>
 
-            <div className="hidden sm:flex items-center bg-gray-800/50 border border-gray-700 rounded-full px-4 py-1.5 focus-within:border-gold-500/50 transition-colors">
+            <div className="hidden sm:flex items-center bg-gray-800/50 border border-gray-700 rounded-full px-4 py-1.5 focus-within:border-brand-500/50 transition-colors">
               <Search size={18} className="text-gray-500" />
               <input
                 type="text"
@@ -58,7 +58,7 @@ const AdminLayout = () => {
           <div className="flex items-center space-x-2 sm:space-x-4">
             <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
               <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-gold-500 rounded-full border-2 border-gray-900"></span>
+              <span className="absolute top-1 right-1 w-2 h-2 bg-brand-500 rounded-full border-2 border-gray-900"></span>
             </button>
 
             <div className="h-8 w-px bg-gray-800"></div>
@@ -69,7 +69,7 @@ const AdminLayout = () => {
                 className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-800 transition-colors"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gold-600 to-gold-400 flex items-center justify-center text-black font-bold text-xs ring-2 ring-gold-500/20">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-black font-bold text-xs ring-2 ring-brand-500/20">
                   {user?.name?.charAt(0).toUpperCase() || 'A'}
                 </div>
                 <div className="hidden md:block text-left">

@@ -1,80 +1,83 @@
+# Versions are pinned to the set the test suite passes with (python -m pytest).
+# An unpinned install is what silently broke password hashing before.
+# To upgrade: change a version here, run the tests, then deploy.
 # -------------------------
 # Core framework
 # -------------------------
-fastapi
-uvicorn[standard]
-gunicorn
+fastapi==0.162.5
+uvicorn[standard]==0.54.0
+gunicorn==27.0.1
 
 # -------------------------
 # Database (PostgreSQL)
 # -------------------------
-sqlalchemy
-psycopg2-binary
-alembic
+sqlalchemy==2.1.8
+psycopg2-binary==2.9.13
+alembic==1.20.1
 
 # -------------------------
 # Validation & settings
 # -------------------------
-pydantic
-pydantic-settings
-python-dotenv
+pydantic==2.14.3
+pydantic-settings==2.16.2
+python-dotenv==1.2.4
 
 # -------------------------
 # Authentication & security
 # -------------------------
-python-jose[cryptography]
-passlib[bcrypt]
-bcrypt
-cryptography
+python-jose[cryptography]==3.5.0
+bcrypt==5.0.0
+cryptography==50.0.2
 # -------------------------
 # Redis & caching
 # -------------------------
-redis
-hiredis
+redis==8.1.0
+hiredis==3.5.0
 
 # -------------------------
 # Background jobs
 # -------------------------
-celery
+celery==5.7.0
 
 # -------------------------
 # WebSockets & realtime
 # -------------------------
-websockets
+websockets==17.4
 
 # -------------------------
 # HTTP client (payments, webhooks)
 # -------------------------
-httpx
-requests
+httpx==0.28.1
+requests==2.34.2
 
 # -------------------------
 # Payment gateways
 # -------------------------
-stripe
+stripe==17.0.0
 
 # -------------------------
 # Utilities
 # -------------------------
-python-multipart
-email-validator
-orjson
+python-multipart==0.0.33
+email-validator==2.3.0
+orjson==3.13.0
 
 # -------------------------
 # Logging & monitoring
 # -------------------------
-structlog
+structlog==26.1.0
 
 # -------------------------
 # Testing (optional in prod)
 # -------------------------
-pytest
-pytest-asyncio
+pytest==9.2.0
+pytest-asyncio==1.5.0
+fakeredis==2.40.0
 
 # -------------------------
 # Additional features for scalability and performance
 # -------------------------
-slowapi #Rate limiting	
-sentry-sdk #Monitoring	
-aioredis #WebSockets scaling	
-geoalchemy2 #Geo queries	
+slowapi==0.1.10  #Rate limiting
+sentry-sdk==2.75.0  #Monitoring
+# aioredis removed: unmaintained, unused (redis-py has asyncio built in)	
+geoalchemy2==0.21.0  #Geo queries

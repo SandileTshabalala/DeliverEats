@@ -35,14 +35,13 @@ const RestaurantMenus = () => {
     const fetchMenus = async () => {
         try {
             setLoading(true);
-            const resData = await restaurantService.listRestaurants();
-            const myRestaurant = resData.find(r => r.admin_id === user?.id) || resData[0]; // Improved finding logic
-
-            if (myRestaurant) {
-                setRestaurantId(myRestaurant.id);
-                const data = await restaurantService.getMenu(myRestaurant.id);
-                setMenus(data);
-            }
+            // Ask the server which restaurant is ours. (This used to fall back to
+            // the first restaurant in the public list, i.e. somebody else's menu.)
+            const myRestaurant = await restaurantService.getMyRestaurant();
+            setRestaurantId(myRestaurant.id);
+            // The owner view includes sold-out items so they can be switched back on
+            const data = await restaurantService.getManageMenu(myRestaurant.id);
+            setMenus(data);
         } catch (error) {
             toast.error('Failed to fetch menu items');
         } finally {
@@ -89,7 +88,7 @@ const RestaurantMenus = () => {
                         setEditingItem(null);
                         setIsAddModalOpen(true);
                     }}
-                    className="flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-blue-600/20 active:scale-95"
+                    className="flex items-center space-x-2 px-6 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-2xl transition-all shadow-xl shadow-brand-600/20 active:scale-95"
                 >
                     <Plus size={20} />
                     <span>Add New Item</span>
@@ -99,13 +98,13 @@ const RestaurantMenus = () => {
             {/* Controls */}
             <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1 relative group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-brand-500 transition-colors" size={20} />
                     <input
                         type="text"
                         placeholder="Search menu items..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl pl-12 pr-4 py-3 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all placeholder-gray-600"
+                        className="w-full bg-gray-900/50 border border-gray-800 rounded-2xl pl-12 pr-4 py-3 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-600"
                     />
                 </div>
                 <div className="flex bg-gray-900/50 border border-gray-800 rounded-2xl p-1.5 px-4 items-center space-x-2 text-sm font-bold text-gray-500 uppercase tracking-widest">
@@ -163,7 +162,7 @@ const RestaurantMenus = () => {
                                 </div>
                                 <div className="p-6 relative">
                                     <div className="flex justify-between items-start mb-2">
-                                        <h3 className="font-bold text-lg text-white group-hover:text-blue-400 transition-colors uppercase tracking-tighter leading-tight">{item.name}</h3>
+                                        <h3 className="font-bold text-lg text-white group-hover:text-brand-400 transition-colors uppercase tracking-tighter leading-tight">{item.name}</h3>
                                         <p className="font-black text-xl text-white">R {item.price}</p>
                                     </div>
                                     <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed h-8 mb-6">{item.description || 'No description provided for this item.'}</p>

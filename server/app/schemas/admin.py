@@ -48,6 +48,7 @@ class AdminCreateUser(BaseModel):
 class AdminDriverCreate(AdminCreateUser):
     vehicle_type: str
     vehicle_number: Optional[str] = None
+    restaurant_id: Optional[str] = None
     role: Role = Role.DRIVER
 
 class AdminRestaurantCreate(BaseModel):

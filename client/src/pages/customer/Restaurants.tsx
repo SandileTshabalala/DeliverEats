@@ -70,13 +70,13 @@ const Restaurants = () => {
 
                 <div className="flex items-center space-x-4">
                     <div className="relative group flex-1 md:w-80">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-blue-500 transition-colors" size={18} />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-brand-500 transition-colors" size={18} />
                         <input
                             type="text"
                             placeholder="Search restaurants..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-800 rounded-2xl py-3.5 pl-12 pr-6 text-white outline-none focus:ring-1 focus:ring-blue-500 transition-all text-sm font-medium"
+                            className="w-full bg-gray-900 border border-gray-800 rounded-2xl py-3.5 pl-12 pr-6 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all text-sm font-medium"
                         />
                     </div>
                     <button className="p-3.5 bg-gray-900 border border-gray-800 rounded-2xl text-gray-400 hover:text-white transition-all">
@@ -120,7 +120,7 @@ const Restaurants = () => {
                         <Link
                             to={`/customer/menu/${res.id}`}
                             key={res.id}
-                            className="group relative bg-gray-900 rounded-[40px] overflow-hidden border border-gray-800 hover:border-blue-500/50 transition-all flex flex-col"
+                            className="group relative bg-gray-900 rounded-[40px] overflow-hidden border border-gray-800 hover:border-brand-500/50 transition-all flex flex-col"
                         >
                             <div className="h-52 bg-gray-800 relative overflow-hidden flex items-center justify-center">
                                 {res.logo_img_url ? (
@@ -132,17 +132,17 @@ const Restaurants = () => {
                                 ) : (
                                     <Utensils className="w-16 h-16 text-gray-700 group-hover:scale-110 transition-transform duration-500" />
                                 )}
-                                <div className="absolute inset-0 bg-blue-500/10 group-hover:bg-blue-500/0 transition-colors"></div>
+                                <div className="absolute inset-0 bg-brand-500/10 group-hover:bg-brand-500/0 transition-colors"></div>
                                 <div className="absolute top-6 left-6 z-20">
                                     <div className="flex items-center space-x-1 px-4 py-2 bg-gray-950/80 backdrop-blur-md rounded-full border border-white/10 shadow-xl">
-                                        <Star className="text-blue-500 fill-current" size={14} />
+                                        <Star className="text-brand-500 fill-current" size={14} />
                                         <span className="text-xs font-black text-white">4.8</span>
                                     </div>
                                 </div>
                             </div>
                             <div className="p-8 space-y-4 flex-1">
                                 <div className="space-y-2">
-                                    <h3 className="text-2xl font-black tracking-tight group-hover:text-blue-500 transition-colors uppercase italic">{res.name}</h3>
+                                    <h3 className="text-2xl font-black tracking-tight group-hover:text-brand-500 transition-colors uppercase italic">{res.name}</h3>
                                     <p className="text-gray-500 text-sm font-medium line-clamp-2 leading-relaxed">
                                         {res.description || "Authentic Matafini flavors prepared daily with fresh ingredients and traditional spices."}
                                     </p>
@@ -150,11 +150,11 @@ const Restaurants = () => {
                                 <div className="flex items-center justify-between pt-6 border-t border-gray-800">
                                     <div className="flex items-center space-x-4">
                                         <div className="flex items-center space-x-2 text-gray-500">
-                                            <Clock size={16} className="text-blue-500" />
+                                            <Clock size={16} className="text-brand-500" />
                                             <span className="text-xs font-bold uppercase tracking-wider">25-35 MIN</span>
                                         </div>
                                         <div className="flex items-center space-x-2 text-gray-500">
-                                            <MapPin size={16} className="text-blue-500" />
+                                            <MapPin size={16} className="text-brand-500" />
                                             <span className="text-xs font-bold uppercase tracking-wider">{res.address.split(',')[0]}</span>
                                         </div>
                                     </div>

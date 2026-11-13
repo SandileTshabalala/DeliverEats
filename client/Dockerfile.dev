@@ -6,7 +6,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm@9
 
 # Install deps (this installs rollup correctly)
 RUN pnpm install --frozen-lockfile

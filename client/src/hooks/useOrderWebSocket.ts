@@ -1,71 +1,80 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
-interface WebSocketMessage {
-    type: 'new_order' | 'order_updated';
-    order_id: string;
+export interface OrderSocketMessage {
+    type: 'new_order' | 'order_updated' | 'auth_success' | 'auth_error';
+    order_id?: string;
     status?: string;
     restaurant_id?: string;
     driver_id?: string;
+    payment_status?: string;
 }
 
-export const useOrderWebSocket = (onMessage: (message: WebSocketMessage) => void) => {
-    const ws = useRef<WebSocket | null>(null);
-    const reconnectTimeout = useRef<any>(null);
+/** ws(s)://host/api/v1 derived from the same VITE_API_URL the REST client uses. */
+const socketBaseUrl = (): string => {
+    const apiUrl: string = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+    const absolute = new URL(apiUrl, window.location.origin);
+    absolute.protocol = absolute.protocol === 'https:' ? 'wss:' : 'ws:';
+    return absolute.toString().replace(/\/$/, '');
+};
 
-    const connect = useCallback(() => {
-        try {
-            // Get token from sessionStorage
+/**
+ * Live order events for the signed-in user.
+ *
+ * The socket is opened once per mounted component. The latest `onMessage` is
+ * kept in a ref, so passing a new inline function on every render does NOT
+ * tear the connection down and reopen it (the previous version did, and also
+ * reconnected after being closed on purpose, leaking sockets).
+ */
+export const useOrderWebSocket = (onMessage: (message: OrderSocketMessage) => void) => {
+    const handler = useRef(onMessage);
+    useEffect(() => {
+        handler.current = onMessage;
+    });
+
+    useEffect(() => {
+        let socket: WebSocket | null = null;
+        let retryTimer: ReturnType<typeof setTimeout> | undefined;
+        let stopped = false;
+        let attempt = 0;
+
+        const connect = () => {
+            if (stopped) return;
             const token = sessionStorage.getItem('access_token');
-            if (!token) {
-                console.log('No access token found, skipping WebSocket connection');
-                return;
-            }
+            if (!token) return;
 
-            // Connect to WebSocket endpoint with token as query param
-            const wsUrl = `ws://localhost:8000/api/v1/ws/orders/updates?token=${token}`;
-            ws.current = new WebSocket(wsUrl);
+            socket = new WebSocket(`${socketBaseUrl()}/ws/orders/updates?token=${encodeURIComponent(token)}`);
 
-            ws.current.onopen = () => {
-                console.log('WebSocket connected');
+            socket.onopen = () => {
+                attempt = 0;
             };
 
-            ws.current.onmessage = (event) => {
+            socket.onmessage = (event) => {
                 try {
-                    const message = JSON.parse(event.data);
-                    onMessage(message);
-                } catch (error) {
-                    console.error('Failed to parse WebSocket message:', error);
+                    const message: OrderSocketMessage = JSON.parse(event.data);
+                    if (message.type === 'auth_error') {
+                        // Token expired: the next REST call refreshes it, then we retry
+                        return;
+                    }
+                    handler.current(message);
+                } catch {
+                    // ignore anything that is not JSON
                 }
             };
 
-            ws.current.onerror = (error) => {
-                console.error('WebSocket error:', error);
+            socket.onclose = () => {
+                if (stopped) return;
+                // Back off: 2s, 4s, 8s ... capped at 30s
+                attempt += 1;
+                retryTimer = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempt));
             };
+        };
 
-            ws.current.onclose = () => {
-                console.log('WebSocket disconnected, reconnecting in 3s...');
-                // Attempt to reconnect after 3 seconds
-                reconnectTimeout.current = setTimeout(() => {
-                    connect();
-                }, 3000);
-            };
-        } catch (error) {
-            console.error('Failed to connect to WebSocket:', error);
-        }
-    }, [onMessage]);
-
-    useEffect(() => {
         connect();
 
         return () => {
-            if (reconnectTimeout.current) {
-                clearTimeout(reconnectTimeout.current);
-            }
-            if (ws.current) {
-                ws.current.close();
-            }
+            stopped = true;
+            if (retryTimer) clearTimeout(retryTimer);
+            socket?.close();
         };
-    }, [connect]);
-
-    return ws;
+    }, []);
 };

@@ -10,6 +10,9 @@ class Driver(Base):
     # surname = Column(String, nullable=False)
     # contact_number = Column(String, nullable=False)
     # user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    # The restaurant this driver delivers for. NULL = legacy shared driver
+    # (created before drivers belonged to restaurants): used only as a fallback.
+    restaurant_id = Column(String, ForeignKey("restaurants.id", ondelete="SET NULL"), nullable=True, index=True)
     vehicle_type = Column(String, nullable=False)
     vehicle_number = Column(String, nullable=True)
     is_available = Column(Boolean, default=True)

@@ -36,15 +36,15 @@ const RestaurantDashboard = () => {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
             </div>
         );
     }
 
     const stats = [
-        { label: 'Total Orders', value: orders.length.toString(), icon: ShoppingBag, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+        { label: 'Total Orders', value: orders.length.toString(), icon: ShoppingBag, color: 'text-brand-500', bg: 'bg-brand-500/10' },
         { label: 'Revenue', value: 'R 8,240', icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/10' },
-        { label: 'Active Menus', value: '14', icon: UtensilsCrossed, color: 'text-gold-500', bg: 'bg-gold-500/10' },
+        { label: 'Active Menus', value: '14', icon: UtensilsCrossed, color: 'text-brand-500', bg: 'bg-brand-500/10' },
         { label: 'Rating', value: '4.8', icon: Star, color: 'text-orange-500', bg: 'bg-orange-500/10' },
     ];
 
@@ -58,7 +58,7 @@ const RestaurantDashboard = () => {
                     <p className="text-gray-400 mt-1">Real-time status of your restaurant operations.</p>
                 </div>
                 <div className="flex items-center space-x-2 bg-gray-900 border border-gray-800 rounded-2xl p-1">
-                    <div className="px-4 py-2 bg-blue-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-blue-500/20">
+                    <div className="px-4 py-2 bg-brand-500 text-white font-bold rounded-xl text-sm transition-all shadow-lg shadow-brand-500/20">
                         Live Monitor
                     </div>
                 </div>
@@ -88,10 +88,10 @@ const RestaurantDashboard = () => {
                 <div className="lg:col-span-2 space-y-4">
                     <div className="flex items-center justify-between">
                         <h3 className="text-xl font-bold text-white flex items-center space-x-2">
-                            <Clock size={20} className="text-blue-500" />
+                            <Clock size={20} className="text-brand-500" />
                             <span>Recent Orders</span>
                         </h3>
-                        <button className="text-xs font-bold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-widest">See all orders</button>
+                        <button className="text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors uppercase tracking-widest">See all orders</button>
                     </div>
 
                     {orders.length === 0 ? (
@@ -103,7 +103,7 @@ const RestaurantDashboard = () => {
                             {orders.slice(0, 5).map((order) => (
                                 <div key={order.id} className="p-4 bg-gray-900/40 hover:bg-gray-800/40 border border-gray-800 rounded-2xl flex items-center justify-between transition-all group">
                                     <div className="flex items-center space-x-4">
-                                        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500 font-bold text-sm">
+                                        <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-bold text-sm">
                                             #{order.id.slice(-4)}
                                         </div>
                                         <div>
@@ -131,10 +131,10 @@ const RestaurantDashboard = () => {
 
                 {/* Quick Actions / Insights */}
                 <div className="space-y-6">
-                    <div className="p-6 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl shadow-xl shadow-blue-500/10">
+                    <div className="p-6 bg-gradient-to-br from-brand-600 to-brand-700 rounded-3xl shadow-xl shadow-brand-500/10">
                         <h4 className="text-lg font-bold text-white mb-2">Kitchen Health</h4>
-                        <p className="text-blue-100/70 text-sm leading-relaxed mb-4">You have {pendingOrders.length} pending orders that need action.</p>
-                        <button className="w-full py-3 bg-white text-blue-600 font-black rounded-2xl text-sm transition-transform active:scale-95 shadow-lg uppercase tracking-wider">
+                        <p className="text-brand-100/70 text-sm leading-relaxed mb-4">You have {pendingOrders.length} pending orders that need action.</p>
+                        <button className="w-full py-3 bg-white text-brand-600 font-black rounded-2xl text-sm transition-transform active:scale-95 shadow-lg uppercase tracking-wider">
                             Manage Current Orders
                         </button>
                     </div>
@@ -150,7 +150,7 @@ const RestaurantDashboard = () => {
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-sm text-gray-300">New Reviews</span>
-                                <span className="text-xs font-bold text-blue-400">+5 Today</span>
+                                <span className="text-xs font-bold text-brand-400">+5 Today</span>
                             </div>
                         </div>
                     </div>

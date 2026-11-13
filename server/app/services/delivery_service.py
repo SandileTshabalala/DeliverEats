@@ -1,6 +1,7 @@
 from math import radians, cos, sin, asin, sqrt
 from sqlalchemy.orm import Session
 from app.models.driver import Driver
+from app.services.driver_service import restaurant_driver_filter
 
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -18,13 +19,14 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371 # Radius of earth in kilometers. Use 3956 for miles
     return c * r
 
-def assign_nearest_driver(db: Session, order_lat: float, order_lng: float) -> Driver:
+def assign_nearest_driver(db: Session, order_lat: float, order_lng: float, restaurant_id: str = None) -> Driver:
     """
     Find and return the nearest available driver for an order.
     """
     # Get all available drivers with location data
     available_drivers = db.query(Driver).filter(
         Driver.is_available == True,
+        restaurant_driver_filter(restaurant_id),
         Driver.latitude.isnot(None),
         Driver.longitude.isnot(None)
     ).all()
@@ -35,7 +37,8 @@ def assign_nearest_driver(db: Session, order_lat: float, order_lng: float) -> Dr
     # Sort drivers by distance from order location
     drivers_with_distance = sorted(
         available_drivers,
-        key=lambda d: haversine(order_lat, order_lng, d.latitude, d.longitude)
+        # the restaurant's own drivers before legacy shared ones, then by distance
+        key=lambda d: (d.restaurant_id is None, haversine(order_lat, order_lng, d.latitude, d.longitude))
     )
 
     return drivers_with_distance[0]

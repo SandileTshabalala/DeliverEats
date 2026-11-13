@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 import Login from "./auth/Login";
 import Register from "./auth/Register";
+import { ForgotPassword, ResetPassword } from "./auth/PasswordReset";
 import Landing from "./pages/Landing";
 import { Roles } from "./utils/roles";
 import { useAuth } from "./context/AuthContext";
@@ -15,9 +16,12 @@ const Unauthorized = lazy(() => import("./pages/Unauthorized"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Users = lazy(() => import("./pages/admin/Users"));
 const PaymentSettings = lazy(() => import("./pages/admin/PaymentSettings"));
+const AdminBilling = lazy(() => import("./pages/admin/Billing"));
 const RestaurantDashboard = lazy(() => import("./pages/restaurant/Dashboard"));
 const RestaurantOrders = lazy(() => import("./pages/restaurant/Orders"));
 const RestaurantMenus = lazy(() => import("./pages/restaurant/Menus"));
+const RestaurantSettings = lazy(() => import("./pages/restaurant/Settings"));
+const RestaurantTeam = lazy(() => import("./pages/restaurant/Team"));
 const DriverDashboard = lazy(() => import("./pages/driver/Dashboard"));
 const DriverJobs = lazy(() => import("./pages/driver/Jobs"));
 const CustomerDashboard = lazy(() => import("./pages/customer/Dashboard"));
@@ -65,6 +69,8 @@ export default function AppRouter() {
       />
 
       <Route path="/register" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
 
       {/* PROTECTED ROUTES */}
@@ -80,6 +86,7 @@ export default function AppRouter() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="users" element={<Users />} />
         <Route path="payments" element={<PaymentSettings />} />
+        <Route path="billing" element={<AdminBilling />} />
         <Route path="*" element={<div className="p-8 text-center text-gray-500">Coming Soon</div>} />
       </Route>
 
@@ -95,6 +102,8 @@ export default function AppRouter() {
         <Route path="dashboard" element={<RestaurantDashboard />} />
         <Route path="orders" element={<RestaurantOrders />} />
         <Route path="menus" element={<RestaurantMenus />} />
+        <Route path="team" element={<RestaurantTeam />} />
+        <Route path="settings" element={<RestaurantSettings />} />
         <Route path="*" element={<div className="p-8 text-center text-gray-500 uppercase tracking-widest font-black">Coming Soon</div>} />
       </Route>
 

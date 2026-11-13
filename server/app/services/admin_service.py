@@ -49,14 +49,30 @@ class AdminService:
 
         db.commit()
         db.refresh(user)
+        AdminService._drop_user_cache(user_id)
         return user
 
     @staticmethod
     def deactivate_user(user_id: str, db: Session):
         user = AdminService.get_user_by_id(user_id, db)
         user.is_active = False
+        # A deactivated user must not keep working sessions
+        from app.models.refresh_tokens import RefreshToken
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == user_id,
+            RefreshToken.is_revoked == False
+        ).update({"is_revoked": True})
         db.commit()
+        AdminService._drop_user_cache(user_id)
         return {"message": "User deactivated"}
+
+    @staticmethod
+    def _drop_user_cache(user_id: str):
+        try:
+            from app.core.redis import redis_client
+            redis_client.delete(f"lvovo:user_profile:{user_id}")
+        except Exception:
+            pass
 
     @staticmethod
     def create_admin_user(
@@ -107,6 +123,7 @@ class AdminService:
             id=user.id,
             vehicle_type=payload.vehicle_type,
             vehicle_number=payload.vehicle_number,
+            restaurant_id=payload.restaurant_id,
             is_available=True
         )
         db.add(driver)
@@ -143,4 +160,10 @@ class AdminService:
         db.add(restaurant)
         db.commit()
         db.refresh(restaurant)
+        # The public restaurant list is cached in Redis for 60s
+        try:
+            from app.core.redis import redis_client
+            redis_client.delete("lvovo:restaurants:list")
+        except Exception:
+            pass
         return restaurant

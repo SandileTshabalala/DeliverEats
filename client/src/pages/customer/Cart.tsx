@@ -15,7 +15,6 @@ import {
     Wallet
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../services/api';
@@ -28,15 +27,17 @@ interface PaymentProvider {
     enabled: boolean;
 }
 
-import { getPaymentHandler } from '../../services/paymentFactory';
+import { getPaymentHandler, isOfflineProvider } from '../../services/paymentFactory';
+import type { PaymentSession } from '../../services/paymentFactory';
+import type { OrderQuote } from '../../services/billing';
+import { formatRand } from '../../context/CartContext';
 import { validateLuhn } from '../../utils/validation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { StripePaymentForm } from '../../components/payment/StripePaymentForm';
 
 const Cart = () => {
-    const { items, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
-    const { user } = useAuth();
+    const { items, restaurantId, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
     const navigate = useNavigate();
     const [providers, setProviders] = useState<PaymentProvider[]>([]);
     const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -55,6 +56,45 @@ const Cart = () => {
     // Stripe State
     const [clientSecret, setClientSecret] = useState<string>('');
     const [stripePromise, setStripePromise] = useState<any>(null);
+    const [stripePaymentId, setStripePaymentId] = useState<string>('');
+    const [submitting, setSubmitting] = useState(false);
+
+    // Price from the server: food + this restaurant's delivery fee to the chosen address
+    const [quote, setQuote] = useState<OrderQuote | null>(null);
+    const [quoteError, setQuoteError] = useState<string>('');
+    const basketKey = items.map(i => `${i.id}x${i.quantity}`).join(',');
+
+    useEffect(() => {
+        if (!restaurantId || items.length === 0) {
+            setQuote(null);
+            return;
+        }
+        let cancelled = false;
+        // wait until the customer stops tapping + / - before asking the server
+        const timer = setTimeout(async () => {
+            try {
+                const response = await api.post('/orders/quote', {
+                    restaurant_id: restaurantId,
+                    address_id: selectedAddressId || undefined,
+                    items: items.map(i => ({ menu_item_id: i.id, quantity: i.quantity })),
+                });
+                if (cancelled) return;
+                setQuote(response.data);
+                setQuoteError('');
+            } catch (error: any) {
+                if (cancelled) return;
+                const detail = error.response?.data?.detail;
+                setQuote(null);
+                setQuoteError(typeof detail === 'string' ? detail : 'Could not work out the delivery fee');
+            }
+        }, 350);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+        };
+    }, [restaurantId, selectedAddressId, basketKey]);
+
+    const payable = quote ? Number(quote.total) : totalPrice;
 
     const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '');
@@ -110,9 +150,13 @@ const Cart = () => {
     };
 
     useEffect(() => {
-        fetchPaymentConfig();
         fetchUserAddresses();
     }, []);
+
+    // Each restaurant chooses how it gets paid, so the options depend on the cart
+    useEffect(() => {
+        if (restaurantId) fetchPaymentConfig(restaurantId);
+    }, [restaurantId]);
 
     const fetchUserAddresses = async () => {
         try {
@@ -132,13 +176,11 @@ const Cart = () => {
         }
     };
 
-    const fetchPaymentConfig = async () => {
+    const fetchPaymentConfig = async (forRestaurant: string) => {
         try {
-            const response = await api.get('/payments/config');
+            const response = await api.get('/payments/config', { params: { restaurant_id: forRestaurant } });
             setProviders(response.data);
-            if (response.data.length > 0) {
-                setSelectedProvider(response.data[0].provider_name);
-            }
+            setSelectedProvider(response.data[0]?.provider_name ?? '');
             // Initialize Stripe if available and not already loaded
             const stripeProvider = response.data.find((p: any) => p.provider_name.toLowerCase().includes('stripe'));
             if (stripeProvider && stripeProvider.public_key && !stripePromise) {
@@ -183,59 +225,62 @@ const Cart = () => {
             return;
         }
 
+        if (!restaurantId) {
+            toast.error("We could not tell which restaurant this cart is for. Please add the items again.");
+            clearCart();
+            return;
+        }
+        if (submitting) return; // a double tap must not create two orders
+        setSubmitting(true);
+
+        const loadingToast = toast.loading("Placing your order...");
         try {
-            toast.loading("Processing your delicious order...");
-
-            // 1. Create the Order
-            const orderPayload = {
-                restaurant_id: items[0]?.restaurant_id || "default-restaurant-id",
-                customer_id: (user as any)?.id,
+            // 1. Create the order. The server prices it from the menu and takes
+            //    the customer from the login, so we only send what was chosen.
+            const orderResponse = await api.post('/orders/', {
+                restaurant_id: restaurantId,
                 address_id: selectedAddressId,
-                items: items.map(i => ({
-                    menu_item_id: i.id,
-                    quantity: i.quantity
-                })),
-                total: totalPrice
-            };
-
-            const orderResponse = await api.post('/orders/', orderPayload);
+                items: items.map(i => ({ menu_item_id: i.id, quantity: i.quantity })),
+            });
             const orderId = orderResponse.data.id;
 
-            // 2. Create the Payment record in DB
-            const paymentPayload = {
+            // 2. Start the payment for that order
+            const paymentResponse = await api.post('/payments/', {
                 order_id: orderId,
-                amount: totalPrice,
-                provider_name: selectedProvider
-            };
+                provider_name: selectedProvider,
+            });
+            const session: PaymentSession = paymentResponse.data;
 
-            const paymentResponse = await api.post('/payments/', paymentPayload);
-            const checkoutUrl = paymentResponse.data.checkout_url;
-
-            // 3. Process via Handler (Redirection if needed)
-            // If it's Stripe (client_secret returned), we set state to render Elements
+            // 3a. Stripe: show the card form in place
             const isStripe = providerObj.provider_name.toLowerCase().includes('stripe');
-
-            if (isStripe && checkoutUrl) {
-                // checkoutUrl here is the client_secret from PaymentIntent
-                setClientSecret(checkoutUrl);
-                toast.dismiss();
-                return; // Stop here, render the form
+            if (isStripe && session.checkout_url) {
+                setStripePaymentId(session.id);
+                setClientSecret(session.checkout_url);
+                toast.dismiss(loadingToast);
+                return;
             }
 
-            await handler.process(orderId, Number(totalPrice), providerObj, checkoutUrl);
-
-            // If it's an offline method, it won't redirect, so we finish here
-            if (!checkoutUrl) {
-                toast.dismiss();
-                toast.success("Order placed successfully! Getting it ready...");
+            // 3b. PayFast and other hosted pages: the order exists now, so the
+            //     cart is emptied BEFORE leaving the site. Payment is confirmed
+            //     to the server by PayFast itself, not by coming back here.
+            const leavingSite = await handler.process(session, providerObj);
+            if (leavingSite) {
                 clearCart();
-                navigate('/customer/orders');
+                toast.loading(`Taking you to ${providerObj.display_name}...`, { id: loadingToast });
+                return;
             }
+
+            // 3c. Cash / card on delivery: done
+            toast.success("Order placed! The kitchen has it now.", { id: loadingToast });
+            clearCart();
+            navigate('/customer/orders');
         } catch (error: any) {
-            toast.dismiss();
             console.error("Checkout error:", error);
-            const msg = error.response?.data?.detail || "Failed to place order. Please try again.";
-            toast.error(msg);
+            const detail = error.response?.data?.detail;
+            const msg = typeof detail === 'string' ? detail : "Failed to place order. Please try again.";
+            toast.error(msg, { id: loadingToast });
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -243,18 +288,18 @@ const Cart = () => {
         return (
             <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-500">
                 <div className="relative">
-                    <div className="absolute inset-0 bg-blue-500 rounded-full blur-[80px] opacity-20 animate-pulse"></div>
+                    <div className="absolute inset-0 bg-brand-500 rounded-full blur-[80px] opacity-20 animate-pulse"></div>
                     <div className="w-32 h-32 bg-gray-900 border border-gray-800 rounded-[40px] flex items-center justify-center relative z-10 shadow-2xl">
                         <ShoppingBag size={48} className="text-gray-700" />
                     </div>
                 </div>
                 <div className="text-center space-y-2">
                     <h2 className="text-3xl font-black uppercase tracking-tighter italic">Your cart is empty</h2>
-                    <p className="text-gray-500 font-medium max-w-xs mx-auto text-lg leading-tight">Looks like you haven't added any charcoal grilled goodness yet.</p>
+                    <p className="text-gray-500 font-medium max-w-xs mx-auto text-lg leading-tight">Nothing in here yet. Find a spot near you and order something good.</p>
                 </div>
                 <Link
                     to="/customer"
-                    className="flex items-center space-x-3 px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-blue-600/20 active:scale-95 transition-all"
+                    className="flex items-center space-x-3 px-8 py-4 bg-brand-600 hover:bg-brand-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl shadow-brand-600/20 active:scale-95 transition-all"
                 >
                     <span>Start Ordering</span>
                     <ArrowRight size={18} />
@@ -267,7 +312,7 @@ const Cart = () => {
         <div className="max-w-6xl mx-auto space-y-12 animate-in fade-in duration-500">
             <div className="flex items-center justify-between">
                 <h1 className="text-4xl font-black uppercase tracking-tighter italic">Your Selection</h1>
-                <Link to="/customer" className="hidden md:flex items-center space-x-2 text-blue-500 font-bold hover:text-blue-400">
+                <Link to="/customer" className="hidden md:flex items-center space-x-2 text-brand-500 font-bold hover:text-brand-400">
                     <Plus size={18} />
                     <span className="uppercase tracking-widest text-xs">Add more items</span>
                 </Link>
@@ -297,10 +342,10 @@ const Cart = () => {
                                 </div>
                                 <div className="ml-6 flex-1 pr-4">
                                     <div className="flex justify-between">
-                                        <h3 className="text-xl font-black uppercase tracking-tight italic group-hover:text-blue-500 transition-colors truncate pr-4">{item.name}</h3>
-                                        <p className="font-black text-white text-lg whitespace-nowrap">R {item.price * item.quantity}</p>
+                                        <h3 className="text-xl font-black uppercase tracking-tight italic group-hover:text-brand-500 transition-colors truncate pr-4">{item.name}</h3>
+                                        <p className="font-black text-white text-lg whitespace-nowrap">{formatRand(Number(item.price) * item.quantity)}</p>
                                     </div>
-                                    <p className="text-gray-500 text-sm font-medium h-5 truncate mb-4">Each: R {item.price}</p>
+                                    <p className="text-gray-500 text-sm font-medium h-5 truncate mb-4">Each: {formatRand(item.price)}</p>
 
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center bg-gray-950 border border-gray-800 rounded-xl p-1">
@@ -335,7 +380,7 @@ const Cart = () => {
                 <div className="space-y-8">
                     <div className="bg-gray-900 border border-gray-800 rounded-[40px] p-8 space-y-8 shadow-2xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-                            <CreditCard size={120} className="text-blue-500" />
+                            <CreditCard size={120} className="text-brand-500" />
                         </div>
 
                         <h3 className="text-2xl font-black uppercase tracking-tighter italic relative z-10">Order Summary</h3>
@@ -343,22 +388,35 @@ const Cart = () => {
                         <div className="space-y-4 relative z-10">
                             <div className="flex justify-between text-gray-400 font-bold uppercase tracking-widest text-xs">
                                 <span>Subtotal</span>
-                                <span className="text-white">R {totalPrice}</span>
+                                <span className="text-white">{formatRand(totalPrice)}</span>
                             </div>
                             <div className="flex justify-between text-gray-400 font-bold uppercase tracking-widest text-xs">
-                                <span>Delivery Fee</span>
-                                <span className="text-blue-500">FREE</span>
+                                <span>
+                                    Delivery Fee
+                                    {quote?.distance_km != null && <span className="normal-case tracking-normal text-gray-600"> (about {quote.distance_km} km)</span>}
+                                </span>
+                                <span className={quote && Number(quote.delivery_fee) === 0 ? "text-brand-500" : "text-white"}>
+                                    {!quote ? '...' : Number(quote.delivery_fee) === 0 ? 'FREE' : formatRand(quote.delivery_fee)}
+                                </span>
                             </div>
                             <div className="pt-4 border-t border-gray-800 flex justify-between">
                                 <span className="text-xl font-black uppercase tracking-tighter italic">Total Amount</span>
-                                <span className="text-2xl font-black text-blue-500">R {totalPrice}</span>
+                                <span className="text-2xl font-black text-brand-500">{formatRand(payable)}</span>
                             </div>
+                            {quote && !quote.free_delivery && quote.free_delivery_over && Number(quote.delivery_fee) > 0 && (
+                                <p className="text-xs text-gray-500">
+                                    Add {formatRand(Number(quote.free_delivery_over) - Number(quote.subtotal))} more for free delivery.
+                                </p>
+                            )}
+                            {quoteError && (
+                                <p role="alert" className="text-xs font-bold text-red-500">{quoteError}</p>
+                            )}
                         </div>
 
                         <div className="space-y-4 pt-4">
                             <div className="flex items-center justify-between">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Delivery Address</p>
-                                <Link to="/customer/profile" className="text-[10px] font-black uppercase tracking-widest text-blue-500">Edit</Link>
+                                <Link to="/customer/profile" className="text-[10px] font-black uppercase tracking-widest text-brand-500">Edit</Link>
                             </div>
 
                             {loadingAddresses ? (
@@ -380,24 +438,24 @@ const Cart = () => {
                                             className={clsx(
                                                 "w-full flex items-start space-x-3 p-3 rounded-xl border transition-all text-left",
                                                 selectedAddressId === addr.id
-                                                    ? "bg-blue-600/10 border-blue-500 text-white"
+                                                    ? "bg-brand-600/10 border-brand-500 text-white"
                                                     : "bg-gray-950 border-gray-800 text-gray-500 hover:border-gray-700"
                                             )}
                                         >
-                                            <MapPin size={18} className={clsx(selectedAddressId === addr.id ? "text-blue-500" : "text-gray-600")} />
+                                            <MapPin size={18} className={clsx(selectedAddressId === addr.id ? "text-brand-500" : "text-gray-600")} />
                                             <div className="flex-1 overflow-hidden">
                                                 <p className="text-[10px] font-black uppercase tracking-tight truncate">{addr.suburb || 'My Spot'}</p>
                                                 <p className="text-[8px] font-medium truncate">{addr.formatted_address}</p>
                                             </div>
-                                            {selectedAddressId === addr.id && <ShieldCheck size={14} className="text-blue-500 flex-shrink-0" />}
+                                            {selectedAddressId === addr.id && <ShieldCheck size={14} className="text-brand-500 flex-shrink-0" />}
                                         </button>
                                     ))}
                                 </div>
                             )}
 
                             <div className="flex items-center space-x-3 text-gray-500">
-                                <Truck size={18} className="text-blue-500" />
-                                <span className="text-xs font-bold uppercase tracking-wider">Fast Delivery (25 mins)</span>
+                                <Truck size={18} className="text-brand-500" />
+                                <span className="text-xs font-bold uppercase tracking-wider">Delivered to your door</span>
                             </div>
                         </div>
 
@@ -418,7 +476,7 @@ const Cart = () => {
                                             className={clsx(
                                                 "w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all",
                                                 selectedProvider === p.provider_name
-                                                    ? "bg-blue-600/10 border-blue-500 text-white shadow-lg shadow-blue-500/10"
+                                                    ? "bg-brand-600/10 border-brand-500 text-white shadow-lg shadow-brand-500/10"
                                                     : "bg-gray-950 border-gray-800 text-gray-500 hover:border-gray-700"
                                             )}
                                         >
@@ -426,14 +484,14 @@ const Cart = () => {
                                                 <div className={clsx(
                                                     "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
                                                     selectedProvider === p.provider_name
-                                                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                                                        ? "bg-brand-600 text-white shadow-lg shadow-brand-500/20"
                                                         : "bg-gray-800 text-gray-400"
                                                 )}>
                                                     {getPaymentIcon(p.provider_name)}
                                                 </div>
                                                 <span className="text-xs font-bold uppercase tracking-wider">{p.display_name}</span>
                                             </div>
-                                            {selectedProvider === p.provider_name && <ShieldCheck size={18} className="text-blue-500 animate-in zoom-in duration-300" />}
+                                            {selectedProvider === p.provider_name && <ShieldCheck size={18} className="text-brand-500 animate-in zoom-in duration-300" />}
                                         </button>
                                     ))}
                                 </div>
@@ -453,7 +511,7 @@ const Cart = () => {
                                             placeholder="0000 0000 0000 0000"
                                             className={clsx(
                                                 "w-full bg-gray-950 border rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none transition-all font-mono",
-                                                errors.number ? "border-red-500 focus:border-red-500" : "border-gray-800 focus:border-blue-500"
+                                                errors.number ? "border-red-500 focus:border-red-500" : "border-gray-800 focus:border-brand-500"
                                             )}
                                         />
                                         <CreditCard size={16} className={clsx("absolute right-4 top-1/2 -translate-y-1/2", errors.number ? "text-red-500" : "text-gray-600")} />
@@ -470,7 +528,7 @@ const Cart = () => {
                                             placeholder="MM/YY"
                                             className={clsx(
                                                 "w-full bg-gray-950 border rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none transition-all font-mono",
-                                                errors.expiry ? "border-red-500 focus:border-red-500" : "border-gray-800 focus:border-blue-500"
+                                                errors.expiry ? "border-red-500 focus:border-red-500" : "border-gray-800 focus:border-brand-500"
                                             )}
                                         />
                                     </div>
@@ -483,7 +541,7 @@ const Cart = () => {
                                             placeholder="123"
                                             className={clsx(
                                                 "w-full bg-gray-950 border rounded-xl px-4 py-3 text-white placeholder-gray-600 outline-none transition-all font-mono",
-                                                errors.cvc ? "border-red-500 focus:border-red-500" : "border-gray-800 focus:border-blue-500"
+                                                errors.cvc ? "border-red-500 focus:border-red-500" : "border-gray-800 focus:border-brand-500"
                                             )}
                                         />
                                     </div>
@@ -495,8 +553,14 @@ const Cart = () => {
                             <Elements stripe={stripePromise} options={{ clientSecret }}>
                                 <StripePaymentForm
                                     clientSecret={clientSecret}
-                                    totalPrice={Number(totalPrice)}
-                                    onSuccess={() => {
+                                    totalPrice={payable}
+                                    onSuccess={async () => {
+                                        // Let the server verify the payment with Stripe itself
+                                        try {
+                                            await api.post(`/payments/${stripePaymentId}/stripe/confirm`);
+                                        } catch (err) {
+                                            console.error('Could not confirm Stripe payment', err);
+                                        }
                                         toast.success("Payment successful!");
                                         clearCart();
                                         navigate('/customer/orders');
@@ -507,12 +571,15 @@ const Cart = () => {
 
                             <button
                                 onClick={handleCheckout}
-                                className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-blue-600/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-3 group"
+                                disabled={submitting || !!quoteError}
+                                className="w-full bg-brand-600 hover:bg-brand-500 disabled:opacity-60 disabled:cursor-not-allowed text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-brand-600/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-3 group"
                             >
                                 <span>
-                                    {selectedProvider && !selectedProvider.includes('delivery')
-                                        ? `Pay R ${totalPrice}`
-                                        : 'Place Order'
+                                    {submitting
+                                        ? 'Please wait...'
+                                        : selectedProvider && !isOfflineProvider(selectedProvider)
+                                            ? `Pay ${formatRand(payable)}`
+                                            : 'Place Order'
                                     }
                                 </span>
                                 <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
@@ -524,7 +591,7 @@ const Cart = () => {
                         </div>
                     </div>
 
-                    <Link to="/customer" className="md:hidden w-full flex items-center justify-center space-x-2 text-blue-500 font-bold p-4 bg-gray-900 border border-gray-800 rounded-2xl">
+                    <Link to="/customer" className="md:hidden w-full flex items-center justify-center space-x-2 text-brand-500 font-bold p-4 bg-gray-900 border border-gray-800 rounded-2xl">
                         <Plus size={18} />
                         <span className="uppercase tracking-widest text-xs">Find more flavors</span>
                     </Link>

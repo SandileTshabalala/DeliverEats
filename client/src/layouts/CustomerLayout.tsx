@@ -35,14 +35,14 @@ const CustomerLayout = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-blue-500/30">
+    <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-brand-500/30">
       {/* Top Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-xl border-b border-gray-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
             <Link to="/customer" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20 group-hover:rotate-12 transition-transform duration-300">
+              <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20 group-hover:rotate-12 transition-transform duration-300">
                 <UtensilsCrossed className="text-white w-6 h-6" />
               </div>
               <span className="text-2xl font-black tracking-tighter uppercase italic">L'vovo</span>
@@ -57,7 +57,7 @@ const CustomerLayout = () => {
                   className={clsx(
                     "px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-widest transition-all flex items-center space-x-2",
                     location.pathname === item.path
-                      ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+                      ? "bg-brand-600 text-white shadow-lg shadow-brand-600/20"
                       : "text-gray-400 hover:text-white hover:bg-gray-900"
                   )}
                 >
@@ -81,7 +81,7 @@ const CustomerLayout = () => {
               >
                 <ShoppingBag size={22} />
                 {totalItems > 0 && (
-                  <span className="absolute top-1 right-1 w-5 h-5 bg-blue-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-gray-950 group-hover:scale-110 transition-transform">
+                  <span className="absolute top-1 right-1 w-5 h-5 bg-brand-600 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-gray-950 group-hover:scale-110 transition-transform">
                     {totalItems}
                   </span>
                 )}
@@ -93,7 +93,7 @@ const CustomerLayout = () => {
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   className="flex items-center space-x-2 p-1.5 bg-gray-900 hover:bg-gray-800 rounded-xl transition-all border border-gray-800"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-black text-xs">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white font-black text-xs">
                     {user?.name?.[0].toUpperCase()}
                   </div>
                   <ChevronDown size={14} className={clsx("text-gray-500 transition-transform", isProfileOpen && "rotate-180")} />
@@ -167,7 +167,7 @@ const CustomerLayout = () => {
                     onClick={() => setIsMenuOpen(false)}
                     className="flex items-center space-x-4 p-4 rounded-2xl bg-gray-950 text-white font-bold"
                   >
-                    <item.icon size={20} className="text-blue-500" />
+                    <item.icon size={20} className="text-brand-500" />
                     <span>{item.label}</span>
                   </Link>
                 ))}
