@@ -42,6 +42,39 @@ def upgrade() -> None:
         )
         op.create_index('ix_drivers_restaurant_id', 'drivers', ['restaurant_id'])
 
+    restaurant_columns = {c['name'] for c in inspector.get_columns('restaurants')}
+    if 'category' not in restaurant_columns:
+        op.add_column('restaurants', sa.Column('category', sa.String(), nullable=True))
+    if 'accepting_orders' not in restaurant_columns:
+        op.add_column('restaurants', sa.Column('accepting_orders', sa.Boolean(), nullable=False, server_default=sa.true()))
+    if 'opens_at' not in restaurant_columns:
+        op.add_column('restaurants', sa.Column('opens_at', sa.String(5), nullable=True))
+    if 'closes_at' not in restaurant_columns:
+        op.add_column('restaurants', sa.Column('closes_at', sa.String(5), nullable=True))
+    if 'vat_number' not in restaurant_columns:
+        op.add_column('restaurants', sa.Column('vat_number', sa.String(20), nullable=True))
+
+    if 'platform_settings' not in tables:
+        op.create_table(
+            'platform_settings',
+            sa.Column('key', sa.String(64), primary_key=True),
+            sa.Column('value', sa.String(500), nullable=True),
+            sa.Column('updated_at', sa.DateTime(), nullable=True),
+        )
+
+    if 'order_reviews' not in tables:
+        op.create_table(
+            'order_reviews',
+            sa.Column('id', sa.String(), primary_key=True),
+            sa.Column('order_id', sa.String(), sa.ForeignKey('orders.id', ondelete='CASCADE'), nullable=False, unique=True),
+            sa.Column('restaurant_id', sa.String(), sa.ForeignKey('restaurants.id', ondelete='CASCADE'), nullable=False),
+            sa.Column('customer_id', sa.String(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+            sa.Column('rating', sa.Integer(), nullable=False),
+            sa.Column('comment', sa.String(), nullable=True),
+            sa.Column('created_at', sa.DateTime(), nullable=True),
+        )
+        op.create_index('ix_order_reviews_restaurant_id', 'order_reviews', ['restaurant_id'])
+
     if 'restaurant_payment_settings' not in tables:
         op.create_table(
             'restaurant_payment_settings',
@@ -55,6 +88,17 @@ def upgrade() -> None:
             sa.Column('payfast_sandbox', sa.Boolean(), nullable=False, server_default=sa.false()),
             sa.Column('updated_at', sa.DateTime(), nullable=True),
         )
+    payment_columns = {c['name'] for c in sa.inspect(op.get_bind()).get_columns('restaurant_payment_settings')}
+    for name, column_type, default in (
+        ('ozow_enabled', sa.Boolean(), sa.false()), ('ozow_site_code', sa.String(), None),
+        ('ozow_client_id', sa.String(), None), ('ozow_client_secret_enc', sa.String(), None),
+        ('ozow_sandbox', sa.Boolean(), sa.false()), ('peach_enabled', sa.Boolean(), sa.false()),
+        ('peach_entity_id', sa.String(), None), ('peach_secret_token_enc', sa.String(), None),
+        ('peach_sandbox', sa.Boolean(), sa.false()),
+    ):
+        if name not in payment_columns:
+            op.add_column('restaurant_payment_settings', sa.Column(
+                name, column_type, nullable=default is None, server_default=default))
 
     if 'restaurant_delivery_settings' not in tables:
         op.create_table(
@@ -115,12 +159,19 @@ def upgrade() -> None:
         op.create_index('ix_subscription_payments_restaurant_id', 'subscription_payments', ['restaurant_id'])
         op.create_index('ix_subscription_payments_parent_id', 'subscription_payments', ['parent_id'])
         op.create_index('ix_subscription_payments_reference', 'subscription_payments', ['reference'])
+    if 'invoice_number' not in {c['name'] for c in sa.inspect(op.get_bind()).get_columns('subscription_payments')}:
+        op.add_column('subscription_payments', sa.Column('invoice_number', sa.Integer(), nullable=True))
+        op.create_index('uq_subscription_payments_invoice_number', 'subscription_payments', ['invoice_number'], unique=True)
 
 
 def downgrade() -> None:
     op.drop_table('subscription_payments')
     op.drop_table('restaurant_subscriptions')
     op.drop_table('subscription_plans')
+    op.drop_table('order_reviews')
+    op.drop_table('platform_settings')
+    for column in ('vat_number', 'closes_at', 'opens_at', 'accepting_orders', 'category'):
+        op.drop_column('restaurants', column)
     op.drop_table('restaurant_delivery_settings')
     op.drop_table('restaurant_payment_settings')
     op.drop_index('ix_drivers_restaurant_id', table_name='drivers')

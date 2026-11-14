@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { PasswordCard } from '../../components/AccountSettings';
 import debounce from 'debounce';
 import {
     User,
@@ -70,14 +71,10 @@ const CustomerProfile = () => {
         fetchAddresses();
     }, []);
 
-    // Debounced address search for autocomplete
+    // Search runs on Enter or the Search button, not on every key: OpenStreetMap's
+    // free address service does not allow search-as-you-type.
     useEffect(() => {
-        if (addressForm.query.length === 0) {
-            setAddressResults([]);
-            return;
-        }
-
-        handleSearchAddress(true);
+        if (addressForm.query.length === 0) setAddressResults([]);
     }, [addressForm.query]);
 
     // useEffect(() => {
@@ -126,7 +123,7 @@ const CustomerProfile = () => {
             async (position) => {
                 const { latitude, longitude } = position.coords;
                 try {
-                    const response = await api.get(`/addresses/reverse-geocode?lat=${latitude}&lng=${longitude}`);
+                    const response = await api.get('/addresses/reverse-geocode', { params: { lat: latitude, lng: longitude } });
                     const result = {
                         display_name: response.data.display_name,
                         lat: latitude.toString(),
@@ -151,15 +148,15 @@ const CustomerProfile = () => {
     const debouncedSearch = useMemo(
         () => debounce(async (query: string, silent: boolean) => {
             try {
-                const response = await api.get(`/addresses/geocode?q=${query}`);
+                const response = await api.get('/addresses/geocode', { params: { q: query } });
                 searchCache.current[query] = response.data;
                 setAddressResults(response.data);
 
                 if (!silent && response.data.length === 0) {
                     toast.error("No addresses found. Try a different search.");
                 }
-            } catch {
-                if (!silent) toast.error("Search failed");
+            } catch (error: any) {
+                if (!silent) toast.error(error?.response?.data?.detail || "Search failed. Try again, or use your current location.");
             } finally {
                 setIsSearching(false);
             }
@@ -498,6 +495,7 @@ const CustomerProfile = () => {
                     </div>
                 </div>
             </div>
+            <PasswordCard />
         </div>
     );
 };

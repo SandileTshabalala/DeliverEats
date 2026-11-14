@@ -1,4 +1,10 @@
 import { useState } from 'react';
+import AddressPicker from '../components/AddressPicker';
+import CartBar from '../components/CartBar';
+import ThemeToggle from '../components/ThemeToggle';
+import { APP_NAME } from '../config/brand';
+import Logo from '../components/Logo';
+import NotificationBell from '../components/NotificationBell';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   ShoppingBag,
@@ -41,12 +47,14 @@ const CustomerLayout = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
-            <Link to="/customer" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 bg-brand-600 rounded-xl flex items-center justify-center shadow-lg shadow-brand-600/20 group-hover:rotate-12 transition-transform duration-300">
-                <UtensilsCrossed className="text-white w-6 h-6" />
-              </div>
-              <span className="text-2xl font-black tracking-tighter uppercase italic">L'vovo</span>
+            <Link to="/customer" aria-label={APP_NAME} className="flex items-center space-x-3 group flex-shrink-0">
+              <Logo mark className="h-11 min-[440px]:hidden" />
+              <span className="hidden min-[440px]:contents"><Logo className="h-11" /></span>
             </Link>
+
+            <div className="hidden lg:block ml-6 mr-auto">
+              <AddressPicker />
+            </div>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-1">
@@ -68,11 +76,14 @@ const CustomerLayout = () => {
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-1 sm:space-x-4">
               {/* Search Trigger */}
-              <button className="p-2.5 text-gray-400 hover:text-white hover:bg-gray-900 rounded-xl transition-all">
+              <Link to="/customer/restaurants" aria-label="Search restaurants" className="hidden sm:block p-2.5 text-gray-400 hover:text-white hover:bg-gray-900 rounded-xl transition-all">
                 <Search size={22} />
-              </button>
+              </Link>
+
+              <ThemeToggle />
+              <NotificationBell />
 
               {/* Cart Icon */}
               <Link
@@ -160,6 +171,7 @@ const CustomerLayout = () => {
               className="md:hidden bg-gray-900 border-b border-gray-800 overflow-hidden"
             >
               <div className="px-4 py-6 space-y-4">
+                <AddressPicker />
                 {navItems.map((item) => (
                   <Link
                     key={item.path}
@@ -178,11 +190,12 @@ const CustomerLayout = () => {
       </nav>
 
       {/* Main Content Area */}
-      <main className="pt-28 pb-12">
+      <main className="pt-28 pb-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Outlet />
         </div>
       </main>
+      <CartBar />
     </div>
   );
 };

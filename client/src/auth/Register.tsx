@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import ThemeToggle from '../components/ThemeToggle';
+import { APP_NAME } from '../config/brand';
+import Logo from '../components/Logo';
+import images from '../constant/images';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -8,9 +12,7 @@ import {
   Phone,
   Lock,
   ArrowRight,
-  Loader2,
-  CheckCircle2,
-  Utensils
+  Loader2
 } from 'lucide-react';
 import { Roles } from '../utils/roles';
 import { usePublicStats } from '../hooks/usePublicStats';
@@ -67,28 +69,23 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 flex font-sans overflow-hidden">
+    <div className="relative min-h-screen bg-gray-950 flex font-sans overflow-hidden">
+      <div className="absolute top-4 right-4 z-20"><ThemeToggle /></div>
       {/* Left Side: Illustration & Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-brand-600 relative overflow-hidden items-center justify-center p-12">
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <div className="absolute top-[-10%] left-[-10%] w-full h-full bg-[radial-gradient(circle,white_1px,transparent_1px)] bg-size-[:40px_40px]"></div>
-        </div>
+      <div className="keep-dark hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center p-12">
+        <img src={images.plates} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-black/45"></div>
 
         <div className="relative z-10 text-white space-y-8 max-w-lg">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-white/10 backdrop-blur-xl rounded-2xl flex items-center justify-center border border-white/20 shadow-2xl">
-              <Utensils className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-4xl font-black tracking-tighter uppercase italic">L'vovo</h1>
-          </div>
+          <Link to="/" className="inline-block"><Logo tone="dark" className="h-16" /><span className="sr-only">{APP_NAME}</span></Link>
 
           <div className="space-y-4">
             <h2 className="text-5xl font-black leading-tight tracking-tighter uppercase">
               Join our community <br />
-              <span className="text-brand-200">of food lovers.</span>
+              <span className="text-brand-500">of food lovers.</span>
             </h2>
-            <p className="text-brand-100/80 text-lg leading-relaxed font-medium">
-              Discover the best street food in Matafini. Quick delivery, fresh ingredients, and unforgettable taste.
+            <p className="text-gray-200 text-lg leading-relaxed font-medium">
+              Order from the restaurants, shisanyamas and kota spots in your area, and follow your food all the way to your door.
             </p>
           </div>
 
@@ -96,14 +93,12 @@ const Register = () => {
             {liveNumbers.map((stat, i) => (
               <div key={i} className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-xl">
                 <p className="text-3xl font-black leading-none mb-1">{stat.label}</p>
-                <p className="text-brand-100/60 text-xs font-bold uppercase tracking-widest">{stat.sub}</p>
+                <p className="text-gray-300 text-xs font-bold uppercase tracking-widest">{stat.sub}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Decorative blob */}
-        <div className="absolute bottom-[-20%] right-[-10%] w-125 h-125 bg-brand-400 rounded-full blur-[120px] opacity-30 animate-pulse"></div>
       </div>
 
       {/* Right Side: Registration Form */}
@@ -113,12 +108,9 @@ const Register = () => {
 
         <div className="w-full max-w-md space-y-8 animate-in slide-in-from-bottom-8 duration-500">
           <div>
-            <Link to="/" className="lg:hidden flex items-center space-x-2 mb-8">
-              <Utensils className="w-8 h-8 text-brand-500" />
-              <span className="text-2xl font-black tracking-tighter uppercase text-white">L'vovo</span>
-            </Link>
+            <Link to="/" className="lg:hidden inline-block mb-8"><Logo className="h-12" /></Link>
             <h3 className="text-3xl font-black text-white tracking-tighter uppercase mb-2">Create Account</h3>
-            <p className="text-gray-500 font-medium">Join us today and explore Matafini's finest flavors.</p>
+            <p className="text-gray-500 font-medium">Create your free account and start ordering from local kitchens.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -239,6 +231,10 @@ const Register = () => {
                 )}
               </button>
             </div>
+            <p className="text-xs text-gray-500 text-center">
+              By creating an account you agree to the <Link to="/terms" className="text-brand-500 hover:text-brand-400 font-bold">Terms of Use</Link> and
+              the <Link to="/privacy" className="text-brand-500 hover:text-brand-400 font-bold">Privacy Policy</Link>.
+            </p>
           </form>
 
           <div className="pt-8 text-center">
@@ -248,17 +244,6 @@ const Register = () => {
                 Sign In
               </Link>
             </p>
-          </div>
-
-          <div className="pt-8 border-t border-gray-900 flex justify-center space-x-6">
-            <div className="flex items-center space-x-2 text-gray-600">
-              <CheckCircle2 size={16} />
-              <span className="text-[10px] font-black uppercase tracking-wider leading-none">Security Verified</span>
-            </div>
-            <div className="flex items-center space-x-2 text-gray-600">
-              <CheckCircle2 size={16} />
-              <span className="text-[10px] font-black uppercase tracking-wider leading-none">256-bit SSL</span>
-            </div>
           </div>
         </div>
       </div>

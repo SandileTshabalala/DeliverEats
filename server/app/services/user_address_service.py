@@ -1,16 +1,12 @@
 from app.models.user_address import UserAddress
-from app.services.geocoding_service import reverse_geocode
-from app.services.address_cache import get_cached_geo, set_cached_geo
+from app.services.geocoding_service import describe
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from app.core.redis import get_async_redis
 
 def create_user_address(db: Session, user_id: str, payload):
-    geo = get_cached_geo(payload.latitude, payload.longitude)
-
-    if not geo:
-        geo = reverse_geocode(payload.latitude, payload.longitude)
-        set_cached_geo(payload.latitude, payload.longitude, geo)
+    # street name if OpenStreetMap can tell us; the pin is saved either way
+    place = describe(payload.latitude, payload.longitude)
 
     if payload.is_default:
         db.query(UserAddress).filter(
@@ -21,9 +17,9 @@ def create_user_address(db: Session, user_id: str, payload):
         user_id=user_id,
         latitude=payload.latitude,
         longitude=payload.longitude,
-        formatted_address=geo.get("display_name"),
-        suburb=geo.get("address", {}).get("suburb"),
-        city=geo.get("address", {}).get("city"),
+        formatted_address=place["formatted_address"],
+        suburb=place["suburb"],
+        city=place["city"],
         instructions=payload.instructions,
         is_default=payload.is_default
     )
@@ -36,7 +32,7 @@ def create_user_address(db: Session, user_id: str, payload):
     import asyncio
     async def invalidate():
         redis = await get_async_redis()
-        await redis.delete(f"user_profile:{user_id}")
+        await redis.delete(f"lvovo:user_profile:{user_id}")
     
     try:
         loop = asyncio.get_event_loop()
@@ -62,16 +58,13 @@ def update_user_address(db: Session, user_id: str, address_id: str, payload):
         ).update({"is_default": False})
 
     if payload.latitude and payload.longitude:
-        geo = get_cached_geo(payload.latitude, payload.longitude)
-        if not geo:
-            geo = reverse_geocode(payload.latitude, payload.longitude)
-            set_cached_geo(payload.latitude, payload.longitude, geo)
-        
+        place = describe(payload.latitude, payload.longitude)
+
         address.latitude = payload.latitude
         address.longitude = payload.longitude
-        address.formatted_address = geo.get("display_name")
-        address.suburb = geo.get("address", {}).get("suburb")
-        address.city = geo.get("address", {}).get("city")
+        address.formatted_address = place["formatted_address"]
+        address.suburb = place["suburb"]
+        address.city = place["city"]
 
     if payload.instructions is not None:
         address.instructions = payload.instructions
@@ -86,7 +79,7 @@ def update_user_address(db: Session, user_id: str, address_id: str, payload):
     import asyncio
     async def invalidate():
         redis = await get_async_redis()
-        await redis.delete(f"user_profile:{user_id}")
+        await redis.delete(f"lvovo:user_profile:{user_id}")
     
     try:
         loop = asyncio.get_event_loop()
@@ -113,7 +106,7 @@ def delete_user_address(db: Session, user_id: str, address_id: str):
     import asyncio
     async def invalidate():
         redis = await get_async_redis()
-        await redis.delete(f"user_profile:{user_id}")
+        await redis.delete(f"lvovo:user_profile:{user_id}")
     
     try:
         loop = asyncio.get_event_loop()

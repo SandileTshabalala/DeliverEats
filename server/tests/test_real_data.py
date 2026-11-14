@@ -164,6 +164,7 @@ def test_system_status_shows_no_secrets(admin):
     assert world["owner"].get("/admin/system").status_code == 403
 
 
+
 def test_public_counters_are_real(client, db):
     from app.models.order import Order
     from app.utils.OrderStatus import OrderStatus

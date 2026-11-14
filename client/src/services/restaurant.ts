@@ -7,6 +7,19 @@ export interface Restaurant {
     address: string;
     is_active: boolean;
     logo_img_url: string | null;
+    category?: string | null;
+    /** every food type it sells, main one first */
+    categories?: string[];
+    /** open right now: the owner's switch is on and we are inside the opening hours */
+    is_open?: boolean;
+    accepting_orders?: boolean;
+    opens_at?: string | null;
+    closes_at?: string | null;
+    rating?: number | null;
+    review_count?: number;
+    delivery_fee_from?: string | null;
+    delivery_per_km?: boolean;
+    free_delivery_over?: string | null;
 }
 
 export interface MenuItem {
@@ -17,6 +30,8 @@ export interface MenuItem {
     is_available: boolean;
     image_url?: string;
     restaurant_id?: string;
+    /** kept on cart items so the cart bar can say where the order is from */
+    restaurant_name?: string;
 }
 
 export const restaurantService = {
@@ -58,6 +73,14 @@ export const restaurantService = {
 
     updateMenuItem: async (itemId: string, data: any): Promise<MenuItem> => {
         const res = await api.patch(`/menus/${itemId}`, data);
+        return res.data;
+    },
+
+    /** Upload a photo for a menu item (resize it first with resizeImage). */
+    uploadItemImage: async (itemId: string, image: Blob): Promise<MenuItem> => {
+        const form = new FormData();
+        form.append('file', image, 'photo');
+        const res = await api.post(`/menus/${itemId}/image`, form, { headers: { 'Content-Type': undefined } });
         return res.data;
     },
 

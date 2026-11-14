@@ -1,8 +1,12 @@
 import { useState } from 'react';
+import ThemeToggle from '../components/ThemeToggle';
+import { APP_NAME } from '../config/brand';
+import Logo from '../components/Logo';
+import NotificationBell from '../components/NotificationBell';
+import { Link as ProfileLink } from 'react-router-dom';
 import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  Bell,
   Menu,
   ChevronDown,
   LogOut,
@@ -54,7 +58,7 @@ const DriverLayout = () => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="h-16 flex items-center justify-between px-6 border-b border-gray-800">
-            <h1 className="text-xl font-bold text-brand-500 tracking-tight">LVOVO DRIVER</h1>
+            <h1 className="flex items-center gap-2"><Logo className="h-9" /><span className="sr-only">{APP_NAME}</span><span className="text-xs font-bold uppercase tracking-widest text-gray-500 mt-1">Driver</span></h1>
             <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setIsSidebarOpen(false)}>
               <X size={20} />
             </button>
@@ -112,13 +116,9 @@ const DriverLayout = () => {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-brand-500 rounded-full border-2 border-gray-900"></span>
-            </button>
 
-            <div className="h-8 w-px bg-gray-800"></div>
-
+            <ThemeToggle />
+            <NotificationBell />
             {/* Profile Dropdown */}
             <div className="relative">
               <button
@@ -139,10 +139,10 @@ const DriverLayout = () => {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)}></div>
                   <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl py-2 z-20 animate-in fade-in zoom-in duration-200">
-                    <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <ProfileLink to="/driver/settings" onClick={() => setIsProfileOpen(false)} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                       <UserIcon size={16} />
-                      <span>My Profile</span>
-                    </button>
+                      <span>My account</span>
+                    </ProfileLink>
                     <button
                       className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors mt-1"
                       onClick={handleLogout}

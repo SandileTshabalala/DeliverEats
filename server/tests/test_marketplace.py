@@ -132,8 +132,8 @@ def test_each_restaurant_sets_its_own_payment_methods(client):
     owner_a, owner_b = state["owner_a"], state["owner_b"]
     config = lambda rid: [m["provider_name"] for m in client.get(f"/api/v1/payments/config?restaurant_id={rid}").json()]
 
-    # default: cash and the shop's card machine
-    assert config(state["A"]) == ["cash_delivery", "card_delivery"]
+    # default: cash only (a countertop card machine cannot go with the driver)
+    assert config(state["A"]) == ["cash_delivery"]
 
     # online payments need the restaurant's own PayFast details
     assert owner_a.put("/manage/payment-settings", json={"payfast_enabled": True}).status_code == 400
@@ -147,10 +147,10 @@ def test_each_restaurant_sets_its_own_payment_methods(client):
 
     # saving again with the mask keeps the stored key
     owner_a.put("/manage/payment-settings", json={"accepts_cash": True, "payfast_merchant_key": "********"})
-    assert config(state["A"]) == ["cash_delivery", "card_delivery", "payfast"]
+    assert config(state["A"]) == ["cash_delivery", "payfast"]
 
     # B is card machine only, and A's settings did not leak into B
-    owner_b.put("/manage/payment-settings", json={"accepts_cash": False})
+    owner_b.put("/manage/payment-settings", json={"accepts_cash": False, "accepts_card_machine": True})
     assert config(state["B"]) == ["card_delivery"]
     assert owner_b.get("/manage/payment-settings").json()["payfast_merchant_id"] is None
     assert owner_b.put("/manage/payment-settings", json={"accepts_card_machine": False}).status_code == 400

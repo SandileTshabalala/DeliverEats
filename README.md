@@ -1,4 +1,8 @@
-# L'vovo Chicken Dust
+# Deliver Eats
+
+A food delivery marketplace for local restaurants, shisanyamas and kota spots:
+customers order, restaurants keep their order money and pay a monthly plan,
+and each restaurant's own drivers deliver.
 
 A full-stack food ordering platform with real-time order tracking, multi-role support (customers, restaurants, drivers, admins), and payment processing.
 

@@ -81,9 +81,16 @@ class OrderRead(BaseModel):
     delivery_address: Optional[str] = None
     payment_status: str = "unpaid"
     payment_method: Optional[str] = None
+    # The customer's own 1-5 rating of this order, once given
+    my_rating: Optional[int] = None
 
     class Config:
         from_attributes = True
+
+
+class ReviewCreate(BaseModel):
+    rating: int = Field(ge=1, le=5)
+    comment: Optional[str] = Field(default=None, max_length=500)
 
 
 class OrderUpdate(BaseModel):

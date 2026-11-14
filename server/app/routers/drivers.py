@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.schemas.driver import DriverProfileCreate, DriverRead
+from app.schemas.driver import DriverProfileCreate, DriverProfileRead, DriverRead
 from app.services.driver_service import (
     create_driver_profile,
     has_active_delivery,
@@ -20,7 +20,7 @@ router = APIRouter(tags=["Drivers"])
 # ----------------------------
 # CREATE DRIVER PROFILE
 # ----------------------------
-@router.post("/profile", response_model=DriverRead)
+@router.post("/profile", response_model=DriverProfileRead)
 def create_profile(
     payload: DriverProfileCreate,
     db: Session = Depends(get_db),
@@ -31,7 +31,7 @@ def create_profile(
     """
     return create_driver_profile(db, user.id, payload.vehicle_type, payload.vehicle_number)
 
-@router.get("/profile", response_model=DriverRead)
+@router.get("/profile", response_model=DriverProfileRead)
 def get_profile(
     db: Session = Depends(get_db),
     user = Depends(require_role(Role.DRIVER))

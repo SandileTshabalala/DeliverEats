@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import ThemeToggle from '../components/ThemeToggle';
+import NotificationBell from '../components/NotificationBell';
+import { Link as ProfileLink } from 'react-router-dom';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/admin/Sidebar';
 import {
-  Bell,
-  Search,
   Menu,
   ChevronDown,
   LogOut,
@@ -45,24 +46,12 @@ const AdminLayout = () => {
               <Menu size={20} />
             </button>
 
-            <div className="hidden sm:flex items-center bg-gray-800/50 border border-gray-700 rounded-full px-4 py-1.5 focus-within:border-brand-500/50 transition-colors">
-              <Search size={18} className="text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search..."
-                className="bg-transparent border-none focus:ring-0 text-sm ml-2 w-64 placeholder-gray-600"
-              />
-            </div>
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
-            <button className="relative p-2 text-gray-400 hover:text-white transition-colors">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-brand-500 rounded-full border-2 border-gray-900"></span>
-            </button>
 
-            <div className="h-8 w-px bg-gray-800"></div>
-
+            <ThemeToggle />
+            <NotificationBell />
             {/* Profile Dropdown */}
             <div className="relative">
               <button
@@ -83,14 +72,10 @@ const AdminLayout = () => {
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setIsProfileOpen(false)}></div>
                   <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl py-2 z-20 animate-in fade-in zoom-in duration-200">
-                    <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                    <ProfileLink to="/admin/settings" onClick={() => setIsProfileOpen(false)} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                       <UserIcon size={16} />
-                      <span>My Profile</span>
-                    </button>
-                    <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors border-b border-gray-700">
-                      <Bell size={16} />
-                      <span>Notifications</span>
-                    </button>
+                      <span>My account</span>
+                    </ProfileLink>
                     <button
                       className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors mt-1"
                       onClick={handleLogout}

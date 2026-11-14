@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { assetUrl, resizeImage } from '../../services/platform';
 import { X, Loader2, UtensilsCrossed, AlignLeft, Banknote, Image as ImageIcon } from 'lucide-react';
 import { restaurantService, type MenuItem } from '../../services/restaurant';
 import { toast } from 'react-hot-toast';
@@ -16,6 +17,9 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');
     const [imageUrl, setImageUrl] = useState('');
+    // a new photo picked in this form, uploaded after the item is saved
+    const [photo, setPhoto] = useState<Blob | null>(null);
+    const [preview, setPreview] = useState<string>('');
     const [isAvailable, setIsAvailable] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -25,17 +29,40 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
             setDescription(itemToEdit.description || '');
             setPrice(itemToEdit.price.toString());
             setImageUrl(itemToEdit.image_url || '');
+            setPreview(assetUrl(itemToEdit.image_url) || '');
+            setPhoto(null);
             setIsAvailable(itemToEdit.is_available);
         } else {
             setName('');
             setDescription('');
             setPrice('');
             setImageUrl('');
+            setPreview('');
+            setPhoto(null);
             setIsAvailable(true);
         }
     }, [itemToEdit, isOpen]);
 
     if (!isOpen) return null;
+
+    const choosePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        try {
+            const resized = await resizeImage(file, 800);
+            setPhoto(resized);
+            setPreview(URL.createObjectURL(resized));
+        } catch (error: any) {
+            toast.error(error?.message || 'That file is not an image we can read');
+        }
+    };
+
+    const removePhoto = () => {
+        setPhoto(null);
+        setPreview('');
+        setImageUrl('');
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,13 +82,17 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                 is_available: isAvailable
             };
 
-            if (itemToEdit) {
-                await restaurantService.updateMenuItem(itemToEdit.id, payload);
-                toast.success('Menu item updated successfully');
-            } else {
-                await restaurantService.createMenuItem(restaurantId, payload);
-                toast.success('Menu item added successfully');
+            const saved = itemToEdit
+                ? await restaurantService.updateMenuItem(itemToEdit.id, payload)
+                : await restaurantService.createMenuItem(restaurantId, payload);
+            if (photo) {
+                try {
+                    await restaurantService.uploadItemImage(saved.id ?? itemToEdit!.id, photo);
+                } catch {
+                    toast.error('The item was saved, but the photo could not be uploaded. Try again from Edit.');
+                }
             }
+            toast.success(itemToEdit ? 'Menu item updated' : 'Menu item added');
             onSuccess();
             onClose();
         } catch (error) {
@@ -109,7 +140,7 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                             required
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            placeholder="e.g. Signature Chicken Dust"
+                            placeholder="e.g. Kota full house"
                             className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600"
                         />
                     </div>
@@ -145,17 +176,27 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
                             <ImageIcon size={14} className="text-brand-500/50" />
-                            <span>Image URL (Optional)</span>
-                        </label>
-                        <input
-                            type="url"
-                            value={imageUrl}
-                            onChange={(e) => setImageUrl(e.target.value)}
-                            placeholder="https://example.com/item.jpg"
-                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600"
-                        />
+                            <span>Photo (Optional)</span>
+                        </span>
+                        <div className="flex items-center gap-4">
+                            <div className="w-20 h-20 rounded-2xl bg-gray-950 border border-gray-800 overflow-hidden flex items-center justify-center text-gray-700 flex-shrink-0">
+                                {preview
+                                    ? <img src={preview} alt="" className="w-full h-full object-cover" />
+                                    : <ImageIcon size={24} />}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <label className="cursor-pointer px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl text-sm">
+                                    {preview ? 'Change photo' : 'Choose photo'}
+                                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={choosePhoto} />
+                                </label>
+                                {preview && (
+                                    <button type="button" onClick={removePhoto} className="px-4 py-2.5 text-gray-400 hover:text-red-500 font-bold rounded-xl text-sm">Remove</button>
+                                )}
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-600">Take it with your phone: it is shrunk before upload.</p>
                     </div>
 
                     <div className="flex items-center space-x-3 p-4 bg-gray-950 border border-gray-800 rounded-2xl">

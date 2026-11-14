@@ -50,6 +50,15 @@ export interface SystemStatus {
     subscriptions: { enforced: boolean; grace_days: number };
     default_delivery_fee: number;
     secrets_encryption_key_set: boolean;
+    legal_contact_set: boolean;
+}
+
+export interface BusinessDetails {
+    business_name: string | null;
+    business_address: string | null;
+    support_email: string | null;
+    support_phone: string | null;
+    vat_number: string | null;
 }
 
 export interface RestaurantProfile {
@@ -59,6 +68,22 @@ export interface RestaurantProfile {
     description: string | null;
     logo_img_url: string | null;
     is_active: boolean;
+    category: string | null;
+    accepting_orders: boolean;
+    opens_at: string | null;
+    closes_at: string | null;
+    is_open: boolean;
+    /** chosen categories, main one first */
+    category_ids: string[];
+    category_options: { id: string; name: string; image_url: string | null }[];
+    max_categories: number;
+    vat_number: string | null;
+}
+
+export interface RestaurantReviews {
+    rating: number | null;
+    review_count: number;
+    reviews: { id: string; order_id: string; rating: number; comment: string | null; created_at: string; customer_name: string }[];
 }
 
 export interface RestaurantStats {
@@ -81,6 +106,8 @@ export const platform = {
     updateRestaurant: async (id: string, data: Partial<Pick<AdminRestaurant, 'name' | 'address' | 'description' | 'is_active'>>): Promise<AdminRestaurant> =>
         (await api.patch(`/admin/restaurants/${id}`, data)).data,
     system: async (): Promise<SystemStatus> => (await api.get("/admin/system")).data,
+    business: async (): Promise<BusinessDetails> => (await api.get("/admin/business")).data,
+    saveBusiness: async (data: Record<keyof BusinessDetails, string>): Promise<BusinessDetails> => (await api.put("/admin/business", data)).data,
     sendTestMessage: async (): Promise<{ sms: boolean; email: boolean }> => (await api.post("/notifications/test")).data,
     changePassword: async (current_password: string, new_password: string) =>
         (await api.post("/auth/change-password", { current_password, new_password })).data,
@@ -94,7 +121,7 @@ export const platform = {
 
     // a restaurant's own profile
     profile: async (): Promise<RestaurantProfile> => (await api.get("/manage/restaurant")).data,
-    updateProfile: async (data: { name?: string; address?: string; description?: string | null }): Promise<RestaurantProfile> =>
+    updateProfile: async (data: Partial<Pick<RestaurantProfile, 'name' | 'address' | 'description' | 'category_ids' | 'accepting_orders' | 'opens_at' | 'closes_at' | 'vat_number'>>): Promise<RestaurantProfile> =>
         (await api.patch("/manage/restaurant", data)).data,
     uploadLogo: async (image: Blob): Promise<RestaurantProfile> => {
         const form = new FormData();
@@ -104,6 +131,7 @@ export const platform = {
     },
     removeLogo: async (): Promise<RestaurantProfile> => (await api.delete("/manage/restaurant/logo")).data,
     restaurantStats: async (): Promise<RestaurantStats> => (await api.get("/manage/stats")).data,
+    restaurantReviews: async (): Promise<RestaurantReviews> => (await api.get("/manage/reviews")).data,
 };
 
 /**

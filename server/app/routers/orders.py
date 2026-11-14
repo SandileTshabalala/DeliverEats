@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from fastapi import Header, APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, require_role
 from app.core.tenancy import manages_restaurant
 from app.core.roles import Role
 from app.models.order import Order
-from app.schemas.order import OrderCreate, OrderQuote, OrderRead
+from app.schemas.order import OrderCreate, OrderQuote, OrderRead, ReviewCreate
+from app.models.order_review import OrderReview
 from app.services.order_service import (
+    CUSTOMER_ORDER_OPTIONS,
     ORDER_LOAD_OPTIONS,
     assign_driver,
     broadcast_order,
@@ -40,13 +43,27 @@ def get_order_for_restaurant_user(db: Session, order_id: str, user) -> Order:
 def new_order(
     payload: OrderCreate,
     db: Session = Depends(get_db),
-    user=Depends(require_role(Role.CUSTOMER))
+    user=Depends(require_role(Role.CUSTOMER)),
+    idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key", max_length=100),
 ):
     """
     Customer creates a new order. The customer is taken from the token and the
     total is calculated on the server from the menu prices.
+
+    The app sends an Idempotency-Key per checkout: if the same request arrives
+    again (weak signal, the phone resends it), the first order is returned
+    instead of a second one being created.
     """
-    return create_order(db, user.id, payload.restaurant_id, payload.items, payload.address_id)
+    from app.services import idempotency
+
+    with idempotency.once(f"order:{user.id}", idempotency_key) as previous:
+        if previous:
+            existing = db.query(Order).filter(Order.id == previous, Order.customer_id == user.id).first()
+            if existing:
+                return existing
+        order = create_order(db, user.id, payload.restaurant_id, payload.items, payload.address_id)
+        idempotency.remember(f"order:{user.id}", idempotency_key, order.id)
+        return order
 
 
 # ----------------------------
@@ -164,6 +181,39 @@ def cancel_my_order(
 
 
 # ----------------------------
+# CUSTOMER: RATE A DELIVERED ORDER
+# ----------------------------
+@router.post("/{order_id}/review", response_model=OrderRead)
+def review_order(
+    order_id: str,
+    payload: ReviewCreate,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.CUSTOMER))
+):
+    """One rating per order, only by the customer who received it."""
+    order = get_order(db, order_id)
+    if not order or order.customer_id != user.id:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.DELIVERED:
+        raise HTTPException(status_code=409, detail="You can rate an order once it has been delivered")
+    if order.review:
+        raise HTTPException(status_code=409, detail="You have already rated this order")
+
+    db.add(OrderReview(
+        order_id=order.id, restaurant_id=order.restaurant_id, customer_id=user.id,
+        rating=payload.rating, comment=(payload.comment or "").strip() or None,
+    ))
+    db.commit()
+    try:  # the public list shows the average: refresh it
+        from app.core.redis import redis_client
+        redis_client.delete("lvovo:restaurants:list", f"lvovo:restaurant:{order.restaurant_id}")
+    except Exception:
+        pass
+    db.expire_all()
+    return db.query(Order).options(*CUSTOMER_ORDER_OPTIONS).filter(Order.id == order_id).first()
+
+
+# ----------------------------
 # DRIVER VIEW: GET JOBS
 # ----------------------------
 @router.get("/driver/jobs", response_model=list[OrderRead])
@@ -204,6 +254,6 @@ def my_orders(
 ):
     """Customer sees all their orders."""
     limit = max(1, min(limit, 100))
-    return db.query(Order).options(*ORDER_LOAD_OPTIONS).filter(
+    return db.query(Order).options(*CUSTOMER_ORDER_OPTIONS).filter(
         Order.customer_id == user.id
     ).order_by(Order.created_at.desc()).offset(max(0, offset)).limit(limit).all()

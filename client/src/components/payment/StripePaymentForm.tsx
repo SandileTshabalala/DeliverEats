@@ -31,7 +31,7 @@ export const StripePaymentForm = ({ onSuccess, totalPrice }: StripePaymentFormPr
                 // Return to orders page on success (redirect fallback)
                 // In a SPA, we might want to handle this without redirect if possible, 
                 // but confirmPayment generally redirects unless redirect: 'if_required' is used.
-                return_url: `${window.location.origin}/customer/orders?payment=success`,
+                return_url: `${window.location.origin}/customer/payment?status=success`,
             },
             redirect: 'if_required'
         });

@@ -53,6 +53,24 @@ class Settings(BaseSettings):
     # Each restaurant sets its real fee, flat or per km, in its settings screen.
     DELIVERY_FEE: float = 0.0
 
+    # Restaurants' local time for opening hours (South Africa: UTC+2, no daylight saving)
+    LOCAL_UTC_OFFSET_HOURS: int = 2
+
+    # Who runs the platform: shown on the privacy policy and terms pages
+    BUSINESS_NAME: str | None = None
+    BUSINESS_ADDRESS: str | None = None
+    SUPPORT_EMAIL: str | None = None
+    SUPPORT_PHONE: str | None = None
+    # Set when the platform is VAT registered: subscription invoices become tax invoices
+    BUSINESS_VAT_NUMBER: str | None = None
+
+    # Address lookup (OpenStreetMap Nominatim). Its usage policy needs a real contact:
+    # leave empty to use the support email from the admin Business details.
+    GEOCODER_URL: str = "https://nominatim.openstreetmap.org"
+    GEOCODER_CONTACT_EMAIL: str | None = None
+    # Only look for addresses in this country (ISO code); empty = anywhere
+    GEOCODER_COUNTRY: str = "za"
+
     # Where uploaded images (restaurant logos) are stored
     UPLOAD_DIR: str = "uploads"
 
@@ -65,7 +83,7 @@ class Settings(BaseSettings):
     ADMIN_CONTACT_NUMBER: str | None = None
 
     # Name used in SMS and email
-    APP_NAME: str = "L'vovo"
+    APP_NAME: str = "Deliver Eats"
 
     # SMS: Africa's Talking (https://africastalking.com). Leave empty to switch SMS off.
     AT_USERNAME: str | None = None      # "sandbox" while testing
@@ -76,7 +94,7 @@ class Settings(BaseSettings):
 
     # Email: Resend (https://resend.com). Leave empty to switch email off.
     RESEND_API_KEY: str | None = None
-    EMAIL_FROM: str | None = None       # e.g. "L'vovo <orders@yourdomain.co.za>" (verified domain)
+    EMAIL_FROM: str | None = None       # e.g. "Deliver Eats <orders@yourdomain.co.za>" (verified domain)
 
     PASSWORD_RESET_MINUTES: int = 30
 

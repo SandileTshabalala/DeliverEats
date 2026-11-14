@@ -35,6 +35,21 @@ class Order(Base):
     restaurant = relationship("Restaurant", back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
     payments = relationship("Payment", back_populates="order")
+    review = relationship("OrderReview", uselist=False)
+
+    @property
+    def my_rating(self):
+        """
+        The customer's 1-5 rating of this order, once given.
+
+        Only answered when the review was loaded with the order (the customer's
+        own list does that). It never triggers a query of its own, so order
+        lists for restaurants and drivers do not pay for it.
+        """
+        from sqlalchemy import inspect
+        if "review" in inspect(self).unloaded:
+            return None
+        return self.review.rating if self.review else None
     
     @property
     def total(self):
@@ -59,9 +74,18 @@ class Order(Base):
         return None
 
     @property
+    def paid_payment(self):
+        """The first payment that went through. A later attempt does not undo it."""
+        done = [p for p in (self.payments or []) if (p.status.value if hasattr(p.status, "value") else str(p.status)) == "completed"]
+        return min(done, key=lambda p: p.created_at or datetime.min) if done else None
+
+    @property
     def payment_status(self):
         """unpaid | pay_on_delivery | pending | completed | failed"""
         from app.utils.PaymentStatus import is_offline_provider
+        if self.paid_payment is not None:
+            # An earlier checkout that succeeded counts even if a newer attempt is still open
+            return "completed"
         payment = self.latest_payment
         if not payment:
             return "unpaid"

@@ -36,6 +36,8 @@ from app.routers.addresses import router as addresses_router
 from app.routers.billing import router as billing_router
 from app.routers.manage import router as manage_router
 from app.routers.platform import router as platform_router
+from app.routers.reports import router as reports_router
+from app.routers.categories import router as categories_router
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent
@@ -81,6 +83,42 @@ async def lifespan(app: FastAPI):
                 connection.execute(text(
                     "CREATE INDEX IF NOT EXISTS ix_drivers_restaurant_id ON drivers (restaurant_id)"
                 ))
+                for column in (
+                    "category VARCHAR",
+                    "accepting_orders BOOLEAN NOT NULL DEFAULT TRUE",
+                    "opens_at VARCHAR(5)",
+                    "closes_at VARCHAR(5)",
+                    "vat_number VARCHAR(20)",
+                ):
+                    connection.execute(text(f"ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS {column}"))
+                for column in (
+                    "ozow_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+                    "ozow_site_code VARCHAR",
+                    "ozow_client_id VARCHAR",
+                    "ozow_client_secret_enc VARCHAR",
+                    "ozow_sandbox BOOLEAN NOT NULL DEFAULT FALSE",
+                    "peach_enabled BOOLEAN NOT NULL DEFAULT FALSE",
+                    "peach_entity_id VARCHAR",
+                    "peach_secret_token_enc VARCHAR",
+                    "peach_sandbox BOOLEAN NOT NULL DEFAULT FALSE",
+                ):
+                    connection.execute(text(f"ALTER TABLE restaurant_payment_settings ADD COLUMN IF NOT EXISTS {column}"))
+                connection.execute(text("ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS invoice_number INTEGER"))
+                connection.execute(text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_subscription_payments_invoice_number "
+                    "ON subscription_payments (invoice_number)"
+                ))
+
+            # One PayFast charge can be recorded once. Its own transaction: if old data
+            # already holds a duplicate, the app still starts and the log says so.
+            try:
+                with engine.begin() as connection:
+                    connection.execute(text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_subscription_payments_pf_charge "
+                        "ON subscription_payments (reference) WHERE method = 'payfast' AND status = 'completed'"
+                    ))
+            except Exception as exc:
+                logger.error(f"Could not add the one-charge-once rule for PayFast payments (duplicate rows?): {exc}")
             # Values added to the Python enums after the database types were first
             # created. Without them Postgres rejects the value: accepting an order
             # when no driver is free ("waiting for driver") failed with a 500, and
@@ -98,8 +136,10 @@ async def lifespan(app: FastAPI):
         # Make sure the built-in payment methods (cash, card on delivery, PayFast) exist
         from app.db.session import SessionLocal
         from app.services.payment_service import ensure_default_payment_providers
+        from app.services.categories import ensure_defaults as ensure_default_categories
         with SessionLocal() as db:
             ensure_default_payment_providers(db)
+            ensure_default_categories(db)
     except Exception as e:
         logger.error(f"Application startup failed: {e}")
         raise
@@ -116,28 +156,28 @@ async def lifespan(app: FastAPI):
 
 # --- FastAPI App Initialization ---
 app = FastAPI(
-    title="L'vovo Chicken Dust API",
-    description="Backend API for L'vovo Chicken Dust food ordering platform",
+    title="Deliver Eats API",
+    description="Backend API for Deliver Eats, a food delivery marketplace for local restaurants",
     version="0.1.0",
     docs_url="/docs" if ENV != "production" else None,
     redoc_url="/redoc" if ENV != "production" else None,
     lifespan=lifespan,
 )
 # --- Middleware Configuration ---
-# CORS first to handle preflights and handshakes early
+# The LAST middleware added runs FIRST. CORS is added last so it wraps
+# everything, including the rate limiter's 429 reply: without CORS headers the
+# browser hides that reply and the app could only show "network error".
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(LoggingMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*", "X-Request-ID"],
-    expose_headers=["Content-Disposition", "X-Request-ID"],
+    expose_headers=["Content-Disposition", "X-Request-ID", "Retry-After"],
 )
-
-# Custom middlewares
-app.add_middleware(RequestIDMiddleware)
-app.add_middleware(LoggingMiddleware)
-app.add_middleware(RateLimitMiddleware)
 
 # --- API Routes ---
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
@@ -156,6 +196,8 @@ app.include_router(addresses_router, prefix="/api/v1", tags=["Addresses"])
 app.include_router(billing_router, prefix="/api/v1")
 app.include_router(manage_router, prefix="/api/v1")
 app.include_router(platform_router, prefix="/api/v1")
+app.include_router(reports_router, prefix="/api/v1")
+app.include_router(categories_router, prefix="/api/v1")
 
 # Uploaded restaurant logos
 from fastapi.staticfiles import StaticFiles  # noqa: E402

@@ -1,10 +1,19 @@
+/**
+ * Stock photos (Unsplash) for the public pages. They illustrate the kind of
+ * food people can order; they are not any particular restaurant's dishes.
+ * Swap them for photos of your own restaurants when you have them.
+ */
+const unsplash = (id: string, width = 1200) =>
+    `https://images.unsplash.com/${id}?q=75&w=${width}&auto=format&fit=crop`;
+
 const images = {
-  grilledChicken:
-    "https://images.unsplash.com/photo-1712579733874-c3a79f0f9d12?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    coleslaw: "https://images.unsplash.com/photo-1573403707491-38a4ea19edc1?q=80&w=1291&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    tomatoes: "https://media.istockphoto.com/id/155415609/photo/diced-tomato.jpg?s=1024x1024&w=is&k=20&c=5SjY0NRnqdXtDgzADhp27cwYuvL7zE8UnLEzJp70SmI=",
-    halfchicken: "https://images.unsplash.com/photo-1652545296821-09a023a9fd08?q=80&w=1176&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    onion: "https://images.unsplash.com/photo-1652545296821-09a023a9fd08?q=80&w=1176&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    heroGrill: unsplash('photo-1599487488170-d11ec9c172f0', 1800),      // skewers on the grill
+    shisanyama: unsplash('photo-1555939594-58d7cb561ad1'),               // grilled meat spread
+    chicken: unsplash('photo-1712579733874-c3a79f0f9d12'),               // grilled chicken
+    ribsAndChips: unsplash('photo-1544025162-d76694265947'),             // ribs, chips and salad
+    burgers: unsplash('photo-1550547660-d9450f859349'),                  // burgers
+    pizza: unsplash('photo-1585238342024-78d387f4a707'),                 // pizza
+    plates: unsplash('photo-1504674900247-0877df9cc836'),                // table of dishes
 };
 
 export default images;

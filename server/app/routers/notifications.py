@@ -1,11 +1,23 @@
 from fastapi import APIRouter, Depends
 
-from app.core.dependencies import require_role
+from app.core.dependencies import get_current_user, require_role
 from app.core.roles import Role
-from app.services import messaging
+from app.services import inbox, messaging
 from app.services.notification_service import send_notification
 
 router = APIRouter(tags=["Notifications"])
+
+
+@router.get("")
+def my_notifications(user=Depends(get_current_user)):
+    """The signed-in person's latest notifications and how many are unread."""
+    return inbox.read(user.id)
+
+
+@router.post("/read")
+def mark_notifications_read(user=Depends(get_current_user)):
+    inbox.mark_read(user.id)
+    return {"unread": 0}
 
 
 @router.get("/status")

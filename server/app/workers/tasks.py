@@ -22,3 +22,14 @@ def run_subscription_reminders():
         return send_subscription_reminders(db)
     finally:
         db.close()
+
+
+@celery_app.task
+def run_ozow_payment_checks():
+    """Confirms recent Ozow payments with Ozow even if their notification did not arrive or match."""
+    from app.services.payment_service import check_pending_ozow_payments
+    db = SessionLocal()
+    try:
+        return check_pending_ozow_payments(db)
+    finally:
+        db.close()

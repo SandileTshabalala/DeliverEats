@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 class DriverBase(BaseModel):
@@ -10,7 +10,7 @@ class DriverBase(BaseModel):
     is_active: Optional[bool] = True
 
 class DriverProfileCreate(BaseModel):
-    vehicle_type: str
+    vehicle_type: str = Field(min_length=1, max_length=40)
     vehicle_number: Optional[str] = None
 
 class DriverRead(BaseModel):
@@ -25,6 +25,12 @@ class DriverRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+class DriverProfileRead(DriverRead):
+    """The driver's own profile. (Not used inside orders, to avoid an extra lookup per order.)"""
+    restaurant_id: Optional[str] = None
+    restaurant_name: Optional[str] = None
+
 
 class DriverUpdate(BaseModel):
     name: Optional[str] = None

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatClock, HALF_HOURS } from '../../utils/clock';
 import { useSearchParams } from 'react-router-dom';
-import { Banknote, CreditCard, Globe, CheckCircle2, AlertTriangle, MapPin, Store, Upload } from 'lucide-react';
+import { Banknote, CreditCard, Globe, Landmark, CheckCircle2, AlertTriangle, MapPin, Store, Upload } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { formatRand } from '../../context/CartContext';
@@ -10,6 +11,7 @@ import {
 } from '../../services/billing';
 import type { BillingOverview, DeliverySettings, PaymentSettings, SubscriptionPayment } from '../../services/billing';
 import { assetUrl, platform, resizeImage } from '../../services/platform';
+import { AccountDetailsCard, PasswordCard } from '../../components/AccountSettings';
 import type { RestaurantProfile } from '../../services/platform';
 
 const input = "w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:border-brand-500 outline-none";
@@ -110,6 +112,9 @@ const Settings = () => {
         try {
             setProfile(await platform.updateProfile({
                 name: profile.name, address: profile.address, description: profile.description || null,
+                category_ids: profile.category_ids,
+                opens_at: profile.opens_at || null, closes_at: profile.closes_at || null,
+                vat_number: profile.vat_number || null,
             }));
             toast.success('Restaurant details saved');
         } catch (error) {
@@ -280,6 +285,66 @@ const Settings = () => {
                             <label className={label} htmlFor="shop-description">Short description</label>
                             <input id="shop-description" maxLength={500} className={input} placeholder="What you are known for" value={profile.description ?? ''} onChange={e => setProfile({ ...profile, description: e.target.value })} />
                         </div>
+                        <div className="md:col-span-2">
+                            <span className={label}>What do you sell? (up to {profile.max_categories})</span>
+                            <div className="flex flex-wrap gap-2" role="group" aria-label="Food types you sell">
+                                {profile.category_options.map(option => {
+                                    const position = profile.category_ids.indexOf(option.id);
+                                    const picked = position >= 0;
+                                    const full = !picked && profile.category_ids.length >= profile.max_categories;
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={option.id}
+                                            aria-pressed={picked}
+                                            disabled={full}
+                                            onClick={() => setProfile({
+                                                ...profile,
+                                                category_ids: picked ? profile.category_ids.filter(id => id !== option.id) : [...profile.category_ids, option.id],
+                                            })}
+                                            className={picked
+                                                ? "px-3.5 py-2 rounded-full text-sm font-bold bg-brand-500 text-white"
+                                                : "px-3.5 py-2 rounded-full text-sm font-bold bg-gray-950 border border-gray-800 text-gray-300 hover:border-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"}
+                                        >
+                                            {option.name}{position === 0 && profile.category_ids.length > 1 ? ' · main' : ''}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1.5">Customers find you under each one. The first you pick shows on your card. Missing a type? Ask the platform team to add it.</p>
+                        </div>
+                        <div>
+                            <label className={label} htmlFor="shop-vat">VAT number (only if VAT registered)</label>
+                            <input id="shop-vat" inputMode="numeric" maxLength={10} pattern="4[0-9]{9}" className={input} placeholder="4xxxxxxxxx"
+                                value={profile.vat_number ?? ''} onChange={e => setProfile({ ...profile, vat_number: e.target.value.replace(/\D/g, '') || null })} />
+                            <p className="text-xs text-gray-600 mt-1">With a VAT number your order invoices become tax invoices showing the VAT.</p>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-800 pt-6 space-y-4">
+                        <div>
+                            <h3 className="font-bold text-white">Opening hours</h3>
+                            <p className="text-sm text-gray-500">Customers can only order while you are open. Leave both empty to be open whenever your kitchen switch is on.</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 max-w-sm">
+                            {([['shop-opens', 'Opens', 'opens_at'], ['shop-closes', 'Closes', 'closes_at']] as const).map(([id, text, key]) => (
+                                <div key={id}>
+                                    <label className={label} htmlFor={id}>{text}</label>
+                                    <select id={id} className={input} value={profile[key] ?? ''} onChange={e => setProfile({ ...profile, [key]: e.target.value || null })}>
+                                        <option value="">Not set</option>
+                                        {/* keep an older saved time (e.g. 22:15) selectable */}
+                                        {profile[key] && !HALF_HOURS.some(h => h.value === profile[key]) && <option value={profile[key]!}>{formatClock(profile[key])}</option>}
+                                        {HALF_HOURS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
+                        <p className={profile.opens_at && profile.closes_at ? "text-sm font-bold text-white" : "text-sm text-gray-500"}>
+                            {profile.opens_at && profile.closes_at
+                                ? `Open every day ${formatClock(profile.opens_at)} to ${formatClock(profile.closes_at)}${profile.closes_at <= profile.opens_at ? ' (closes after midnight)' : ''}`
+                                : profile.opens_at || profile.closes_at ? 'Choose both an opening and a closing time.' : 'No hours set: open whenever your kitchen switch is on.'}
+                        </p>
+                        <p className="text-xs text-gray-600">Closing after midnight works too, for example 6:00 PM to 2:00 AM. Remember to save.</p>
                     </div>
 
                     <button disabled={savingProfile} className="px-6 py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-bold rounded-xl">
@@ -299,9 +364,24 @@ const Settings = () => {
                     <Toggle checked={payments.accepts_cash} onChange={value => set({ accepts_cash: value })} icon={<Banknote size={20} />}
                         title="Cash on delivery" hint="The driver collects cash at the door." />
                     <Toggle checked={payments.accepts_card_machine} onChange={value => set({ accepts_card_machine: value })} icon={<CreditCard size={20} />}
-                        title="Card machine on delivery" hint="The driver takes your speedpoint (FNB, Capitec, Yoco ...) to the customer." />
+                        title="Card machine on delivery"
+                        hint="Only switch this on if your speedpoint (FNB, Capitec, Yoco ...) is portable: the driver takes it to the customer's door. A countertop machine cannot go with the driver." />
+                </div>
+
+                <div className="space-y-2">
+                    <p className={label}>Online payment (optional)</p>
+                    <p className="text-sm text-gray-500">
+                        The customer pays in the app before you cook, so you get no unpaid or fake orders. Each needs your own account with that
+                        company, which pays the money into your bank account and charges a fee per payment. Your speedpoint account cannot be used for this.
+                    </p>
+                </div>
+                <div className="space-y-3">
                     <Toggle checked={payments.payfast_enabled} onChange={value => set({ payfast_enabled: value })} icon={<Globe size={20} />}
-                        title="Online payment with PayFast" hint="Customers pay by card or Instant EFT before you cook. Needs your own PayFast account." />
+                        title="PayFast" hint="Card, Instant EFT and more on one payment page." />
+                    <Toggle checked={payments.ozow_enabled} onChange={value => set({ ozow_enabled: value })} icon={<Landmark size={20} />}
+                        title="Ozow" hint="Instant EFT: the customer pays straight from their own bank app, no card needed." />
+                    <Toggle checked={payments.peach_enabled} onChange={value => set({ peach_enabled: value })} icon={<CreditCard size={20} />}
+                        title="Peach Payments" hint="Card payments, Apple Pay and more on Peach's secure page." />
                 </div>
 
                 {payments.payfast_enabled && (
@@ -328,6 +408,59 @@ const Settings = () => {
                             </label>
                         </div>
                         <p className="text-xs text-gray-600">Saved keys are stored encrypted and are never shown again. Leave the dots as they are to keep the saved key.</p>
+                    </div>
+                )}
+
+                {payments.ozow_enabled && (
+                    <div className="space-y-4 border-t border-gray-800 pt-6">
+                        <p className="font-bold text-white">Ozow details</p>
+                        <p className="text-sm text-gray-400">
+                            In the Ozow Portal open One API, then Clients, and create a client: it gives you a client ID and client secret.
+                            Your site code is on your Ozow site. We check these with Ozow when you save.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className={label} htmlFor="oz-site">Site code</label>
+                                <input id="oz-site" className={input} value={payments.ozow_site_code ?? ''} onChange={e => set({ ozow_site_code: e.target.value })} placeholder="ABC-ABC-001" />
+                            </div>
+                            <div>
+                                <label className={label} htmlFor="oz-client">Client ID</label>
+                                <input id="oz-client" autoComplete="off" className={input} value={payments.ozow_client_id ?? ''} onChange={e => set({ ozow_client_id: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className={label} htmlFor="oz-secret">Client secret</label>
+                                <input id="oz-secret" type="password" autoComplete="off" className={input} value={payments.ozow_client_secret ?? ''} onChange={e => set({ ozow_client_secret: e.target.value })} placeholder="Enter your client secret" />
+                            </div>
+                            <label className="flex items-center space-x-3 text-sm text-gray-300 md:mt-7">
+                                <input type="checkbox" checked={payments.ozow_sandbox} onChange={e => set({ ozow_sandbox: e.target.checked })} className="rounded bg-gray-950 border-gray-700 text-brand-600" />
+                                <span>Test mode (Ozow staging, no real money)</span>
+                            </label>
+                        </div>
+                    </div>
+                )}
+
+                {payments.peach_enabled && (
+                    <div className="space-y-4 border-t border-gray-800 pt-6">
+                        <p className="font-bold text-white">Peach Payments details</p>
+                        <p className="text-sm text-gray-400">
+                            In the Peach Payments Dashboard open Checkout, then API keys: copy the entity ID and the secret token.
+                            Also add <span className="font-mono text-gray-200">{window.location.host}</span> to the allowed domains there,
+                            otherwise Peach refuses to open its payment page from this app.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className={label} htmlFor="peach-entity">Entity ID</label>
+                                <input id="peach-entity" autoComplete="off" className={input} value={payments.peach_entity_id ?? ''} onChange={e => set({ peach_entity_id: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className={label} htmlFor="peach-secret">Secret token</label>
+                                <input id="peach-secret" type="password" autoComplete="off" className={input} value={payments.peach_secret_token ?? ''} onChange={e => set({ peach_secret_token: e.target.value })} placeholder="Enter your secret token" />
+                            </div>
+                            <label className="flex items-center space-x-3 text-sm text-gray-300">
+                                <input type="checkbox" checked={payments.peach_sandbox} onChange={e => set({ peach_sandbox: e.target.checked })} className="rounded bg-gray-950 border-gray-700 text-brand-600" />
+                                <span>Test mode (sandbox, no real money)</span>
+                            </label>
+                        </div>
                     </div>
                 )}
 
@@ -435,7 +568,7 @@ const Settings = () => {
                                     <p className="text-xl font-black text-brand-500">{formatRand(plan.price)} <span className="text-sm font-bold text-gray-500">/ {intervalLabel(plan.interval_months)}</span></p>
                                     {plan.description && <p className="text-sm text-gray-400">{plan.description}</p>}
                                     <p className="text-sm text-gray-500">{plan.max_orders_per_month ? `Up to ${plan.max_orders_per_month} orders a month` : 'Unlimited orders'}</p>
-                                    {!paidUp && (
+                                    {!paidUp && !subscription.recurring_active && (
                                         <button
                                             onClick={() => subscribe(plan.id)}
                                             disabled={subscribing !== null}
@@ -450,6 +583,12 @@ const Settings = () => {
                             );
                         })}
                     </div>
+                )}
+                {subscription.recurring_active && (
+                    <p className="text-sm text-gray-400 p-4 rounded-xl bg-gray-950 border border-gray-800">
+                        Your plan is paid automatically by PayFast. To change plan, contact us first so we can stop the
+                        current debit order and you are never charged twice.
+                    </p>
                 )}
                 {!billing.online_payment_available && (
                     <p className="text-sm text-gray-500">Online payment for plans is not available yet. Contact us to pay by EFT and we will activate your plan.</p>
@@ -469,6 +608,10 @@ const Settings = () => {
                     </div>
                 )}
             </section>
+
+            {/* The signed-in person's own account (owner or staff) */}
+            <AccountDetailsCard hint="New orders and plan reminders are sent to this number and email address." />
+            <PasswordCard />
         </div>
     );
 };

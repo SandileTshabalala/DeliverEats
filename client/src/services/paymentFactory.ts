@@ -128,7 +128,7 @@ export const getPaymentHandler = (provider: any): PaymentHandler => {
     }
 
     // Hosted gateways
-    if (name.includes('stripe') || name.includes('hosted') || name.includes('payfast') || name.includes('ozow') || name.includes('paygate')) {
+    if (name.includes('stripe') || name.includes('hosted') || name.includes('payfast') || name.includes('ozow') || name.includes('peach') || name.includes('paygate')) {
         return new RedirectHandler();
     }
 

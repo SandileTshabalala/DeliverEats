@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { InvoiceButton } from '../../components/ReportControls';
 import {
     ShoppingBag,
     Clock,
@@ -213,6 +214,10 @@ const RestaurantOrders = () => {
                                         ) : (
                                             <p className="text-sm text-gray-600 italic">No item details available in simple view.</p>
                                         )}
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <InvoiceButton path={`/manage/orders/${order.id}/invoice.pdf`} fallbackName={`invoice-${order.id.slice(0, 8).toUpperCase()}.pdf`} label="Download invoice" />
                                     </div>
 
                                     {order.delivery_address && (

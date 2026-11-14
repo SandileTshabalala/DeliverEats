@@ -60,6 +60,7 @@ stripe==17.0.0
 # -------------------------
 python-multipart==0.0.33
 email-validator==2.3.0
+fpdf2==2.9.0  # PDF invoices and reports
 orjson==3.13.0
 
 # -------------------------

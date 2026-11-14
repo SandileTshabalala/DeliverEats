@@ -22,7 +22,7 @@ from app.models.order import Order
 from app.models.restaurant import Restaurant
 from app.models.subscription import RestaurantSubscription, SubscriptionPayment, utcnow
 from app.models.user import User
-from app.services import messaging
+from app.services import business, messaging
 from app.services import subscription_service as subs
 from app.utils.OrderStatus import OrderStatus
 
@@ -183,6 +183,68 @@ def admin_system(admin=Depends(admin_only)):
         "subscriptions": {"enforced": settings.SUBSCRIPTIONS_ENFORCED, "grace_days": settings.SUBSCRIPTION_GRACE_DAYS},
         "default_delivery_fee": settings.DELIVERY_FEE,
         "secrets_encryption_key_set": bool(settings.ENCRYPTION_KEY),
+        "legal_contact_set": _legal_contact_set(),
+    }
+
+
+def _legal_contact_set() -> bool:
+    details = business.current()
+    return bool(details["business_name"] and (details["support_email"] or details["support_phone"]))
+
+
+# --------------------------------------------------------------------------
+# Business details (invoices, legal pages, landing footer)
+# --------------------------------------------------------------------------
+class BusinessDetails(BaseModel):
+    """Empty string clears a field. VAT number only if the business is VAT registered."""
+    business_name: Optional[str] = Field(default=None, max_length=120)
+    business_address: Optional[str] = Field(default=None, max_length=300)
+    support_email: Optional[str] = Field(default=None, max_length=120)
+    support_phone: Optional[str] = Field(default=None, max_length=30)
+    # South African VAT numbers are 10 digits starting with 4
+    vat_number: Optional[str] = Field(default=None, pattern=r"^(4\d{9})?$")
+
+    class Config:
+        extra = "forbid"
+
+
+@router.get("/admin/business")
+def read_business(db: Session = Depends(get_db), admin=Depends(admin_only)):
+    return business.current(db)
+
+
+@router.put("/admin/business")
+def save_business(payload: BusinessDetails, db: Session = Depends(get_db), admin=Depends(admin_only)):
+    changes = payload.model_dump(exclude_unset=True)
+    email = (changes.get("support_email") or "").strip()
+    if email:
+        from email_validator import EmailNotValidError, validate_email
+        try:
+            changes["support_email"] = validate_email(email, check_deliverability=False).normalized
+        except EmailNotValidError:
+            raise HTTPException(status_code=422, detail="That support email address is not valid")
+    saved = business.save(db, changes)
+    try:  # the landing page caches the public site details
+        from app.core.redis import redis_client
+        redis_client.delete("lvovo:stats:public")
+    except Exception:
+        pass
+    return saved
+
+
+# --------------------------------------------------------------------------
+# Public: who runs the platform (for the legal pages) and the category list
+# --------------------------------------------------------------------------
+@router.get("/site")
+def site_info():
+    from app.db.session import SessionLocal
+    from app.services import categories as cats
+    with SessionLocal() as db:
+        names = [c.name for c in cats.listed(db)]
+    return {
+        "app_name": settings.APP_NAME,
+        **{key: value for key, value in business.current().items() if key != "vat_number"},
+        "categories": names,
     }
 
 

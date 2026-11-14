@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -8,6 +8,7 @@ from app.core.roles import Role
 from app.models.menu import Menu
 from app.models.menu_item import MenuItem
 from app.schemas.menu import MenuItemCreate, MenuItemResponse, MenuItemUpdate
+from app.services import uploads
 from app.services.menu_service import (
     create_menu_item,
     delete_menu_item,
@@ -100,6 +101,24 @@ async def update_item_endpoint(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     return item
+
+
+@router.post("/{item_id}/image", response_model=MenuItemResponse)
+async def upload_item_image(
+    item_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_role(Role.RESTAURANT_ADMIN))
+):
+    """Upload a photo for a menu item (PNG, JPG or WebP), replacing any earlier one."""
+    restaurant_id = await run_in_threadpool(restaurant_id_for_item, db, item_id)
+    await run_in_threadpool(ensure_owns_restaurant, db, restaurant_id, user)
+    item = db.query(MenuItem).filter(MenuItem.id == item_id).first()
+    previous = item.image_url
+    path = await uploads.save_image(file, "menu", restaurant_id)
+    updated = await update_menu_item(db, item_id, {"image_url": path})
+    uploads.delete_uploaded(previous)
+    return updated
 
 
 @router.delete("/{item_id}")

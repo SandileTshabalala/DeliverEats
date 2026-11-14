@@ -25,6 +25,7 @@ const Users = () => {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
     const [isActionsOpen, setIsActionsOpen] = useState<string | null>(null);
     const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
@@ -67,10 +68,16 @@ const Users = () => {
         }
     };
 
+    const matchesRole = (u: AdminUser) =>
+        roleFilter === 'all'
+        || (roleFilter === 'admins' ? ['super_admin', 'admin'].includes(u.role) : u.role === roleFilter);
+
     const filteredUsers = users.filter(u =>
-        u.email.toLowerCase().includes(search.toLowerCase()) ||
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.sur_name.toLowerCase().includes(search.toLowerCase())
+        matchesRole(u) && (
+            u.email.toLowerCase().includes(search.toLowerCase()) ||
+            u.name.toLowerCase().includes(search.toLowerCase()) ||
+            u.sur_name.toLowerCase().includes(search.toLowerCase())
+        )
     );
 
     return (
@@ -132,10 +139,21 @@ const Users = () => {
                         className="w-full bg-gray-900/50 border border-gray-800 rounded-xl pl-10 pr-4 py-2.5 focus:ring-1 focus:ring-brand-500 focus:border-brand-500 outline-none transition-all placeholder-gray-600"
                     />
                 </div>
-                <button className="flex items-center space-x-2 px-4 py-2.5 bg-gray-900/50 border border-gray-800 text-gray-400 hover:text-white hover:border-gray-700 rounded-xl transition-all">
-                    <Filter size={20} />
-                    <span className="font-medium text-sm">Filters</span>
-                </button>
+                <label className="flex items-center space-x-2 px-3 py-1.5 bg-gray-900/50 border border-gray-800 text-gray-400 rounded-xl">
+                    <Filter size={18} />
+                    <span className="sr-only">Show</span>
+                    <select
+                        value={roleFilter}
+                        onChange={(e) => setRoleFilter(e.target.value)}
+                        className="bg-transparent border-none text-sm font-medium text-gray-200 focus:ring-0 py-1"
+                    >
+                        <option value="all">All accounts</option>
+                        <option value="customer">Customers</option>
+                        <option value="restaurant_admin">Restaurant owners & staff</option>
+                        <option value="driver">Drivers</option>
+                        <option value="admins">Admins</option>
+                    </select>
+                </label>
                 <button
                     onClick={fetchUsers}
                     className="p-2.5 bg-gray-900/50 border border-gray-800 text-gray-400 hover:text-white hover:border-gray-700 rounded-xl transition-all"
@@ -228,14 +246,10 @@ const Users = () => {
                                                     <>
                                                         <div className="fixed inset-0 z-40" onClick={() => setIsActionsOpen(null)}></div>
                                                         <div className="absolute right-6 top-12 w-48 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in duration-200">
-                                                            <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-brand-500 transition-colors">
-                                                                <Shield size={16} />
-                                                                <span>Edit Permissions</span>
-                                                            </button>
-                                                            <button className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
+                                                            <a href={`mailto:${user.email}`} onClick={() => setIsActionsOpen(null)} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">
                                                                 <Mail size={16} />
-                                                                <span>Contact User</span>
-                                                            </button>
+                                                                <span>Email {user.name}</span>
+                                                            </a>
                                                             <div className="h-px bg-gray-700 my-1"></div>
                                                             <button
                                                                 onClick={() => handleForceLogout(user.id)}

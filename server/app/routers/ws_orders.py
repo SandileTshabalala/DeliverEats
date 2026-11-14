@@ -9,7 +9,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.config import settings
 from app.core.redis import get_async_redis
 from app.core.roles import Role
-from app.core.security import is_token_blacklisted
+from app.core.security import is_token_blacklisted, issued_before_password_change
 from app.db.session import SessionLocal
 from app.models.order import Order
 from app.models.restaurant import Restaurant
@@ -48,7 +48,9 @@ async def authenticate(websocket: WebSocket) -> Optional[dict]:
     if token:
         try:
             payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-            if payload.get("type") == "access" and payload.get("sub") and not await is_token_blacklisted(token):
+            if (payload.get("type") == "access" and payload.get("sub")
+                    and not await is_token_blacklisted(token)
+                    and not issued_before_password_change(payload)):
                 user = await run_in_threadpool(_load_user, payload["sub"])
         except JWTError:
             user = None

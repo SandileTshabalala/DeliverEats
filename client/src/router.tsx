@@ -13,19 +13,28 @@ const RestaurantLayout = lazy(() => import("./layouts/RestaurantLayout"));
 const DriverLayout = lazy(() => import("./layouts/DriverLayout"));
 const CustomerLayout = lazy(() => import("./layouts/CustomerLayout"));
 const Unauthorized = lazy(() => import("./pages/Unauthorized"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const CustomerPaymentResult = lazy(() => import("./pages/customer/PaymentResult"));
+const RestaurantPaymentResult = lazy(() => import("./pages/restaurant/PaymentResult"));
+const Privacy = lazy(() => import("./pages/legal/Privacy"));
+const Terms = lazy(() => import("./pages/legal/Terms"));
 const Dashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Users = lazy(() => import("./pages/admin/Users"));
 const PaymentSettings = lazy(() => import("./pages/admin/PaymentSettings"));
 const AdminBilling = lazy(() => import("./pages/admin/Billing"));
 const AdminRestaurants = lazy(() => import("./pages/admin/Restaurants"));
 const AdminSettings = lazy(() => import("./pages/admin/Settings"));
+const AdminReports = lazy(() => import("./pages/admin/Reports"));
+const AdminCategories = lazy(() => import("./pages/admin/Categories"));
 const RestaurantDashboard = lazy(() => import("./pages/restaurant/Dashboard"));
 const RestaurantOrders = lazy(() => import("./pages/restaurant/Orders"));
 const RestaurantMenus = lazy(() => import("./pages/restaurant/Menus"));
 const RestaurantSettings = lazy(() => import("./pages/restaurant/Settings"));
 const RestaurantTeam = lazy(() => import("./pages/restaurant/Team"));
+const RestaurantReports = lazy(() => import("./pages/restaurant/Reports"));
 const DriverDashboard = lazy(() => import("./pages/driver/Dashboard"));
 const DriverJobs = lazy(() => import("./pages/driver/Jobs"));
+const DriverSettings = lazy(() => import("./pages/driver/Settings"));
 const CustomerDashboard = lazy(() => import("./pages/customer/Dashboard"));
 const CustomerMenu = lazy(() => import("./pages/customer/Menu"));
 const CustomerCart = lazy(() => import("./pages/customer/Cart"));
@@ -74,6 +83,8 @@ export default function AppRouter() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/unauthorized" element={<Unauthorized />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
 
       {/* PROTECTED ROUTES */}
       <Route
@@ -89,9 +100,11 @@ export default function AppRouter() {
         <Route path="users" element={<Users />} />
         <Route path="payments" element={<PaymentSettings />} />
         <Route path="billing" element={<AdminBilling />} />
+        <Route path="categories" element={<AdminCategories />} />
         <Route path="restaurants" element={<AdminRestaurants />} />
+        <Route path="reports" element={<AdminReports />} />
         <Route path="settings" element={<AdminSettings />} />
-        <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="*" element={<NotFound home="/admin/dashboard" embedded />} />
       </Route>
 
       <Route
@@ -107,8 +120,10 @@ export default function AppRouter() {
         <Route path="orders" element={<RestaurantOrders />} />
         <Route path="menus" element={<RestaurantMenus />} />
         <Route path="team" element={<RestaurantTeam />} />
+        <Route path="reports" element={<RestaurantReports />} />
         <Route path="settings" element={<RestaurantSettings />} />
-        <Route path="*" element={<div className="p-8 text-center text-gray-500 uppercase tracking-widest font-black">Coming Soon</div>} />
+        <Route path="payment" element={<RestaurantPaymentResult />} />
+        <Route path="*" element={<NotFound home="/restaurant/dashboard" embedded />} />
       </Route>
 
       <Route
@@ -122,7 +137,8 @@ export default function AppRouter() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<DriverDashboard />} />
         <Route path="jobs" element={<DriverJobs />} />
-        <Route path="*" element={<div className="p-8 text-center text-gray-500 uppercase tracking-widest font-black">Coming Soon</div>} />
+        <Route path="settings" element={<DriverSettings />} />
+        <Route path="*" element={<NotFound home="/driver/dashboard" embedded />} />
       </Route>
 
       <Route
@@ -139,11 +155,12 @@ export default function AppRouter() {
         <Route path="cart" element={<CustomerCart />} />
         <Route path="profile" element={<CustomerProfile />} />
         <Route path="orders" element={<CustomerOrders />} />
-        <Route path="*" element={<Navigate to="/customer" replace />} />
+        <Route path="payment" element={<CustomerPaymentResult />} />
+        <Route path="*" element={<NotFound home="/customer" embedded />} />
       </Route>
 
       {/* FALLBACK */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
     </Suspense>
   );

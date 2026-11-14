@@ -21,7 +21,8 @@ from app.models.menu import Menu
 from app.models.menu_item import MenuItem
 from app.models.order import Order
 from app.models.subscription import utcnow
-from app.services import uploads
+from app.services import categories as cats, restaurant_info, uploads
+from app.models.order_review import OrderReview
 from app.utils.OrderStatus import OrderStatus
 from app.models.refresh_tokens import RefreshToken
 from app.models.restaurant import Restaurant
@@ -90,16 +91,34 @@ class RestaurantProfileUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     address: Optional[str] = Field(default=None, min_length=1, max_length=300)
     description: Optional[str] = Field(default=None, max_length=500)
+    # main category first, up to cats.MAX_PER_RESTAURANT
+    category_ids: Optional[List[str]] = None
+    category: Optional[str] = None  # older screens: one category by name
+    accepting_orders: Optional[bool] = None
+    # "HH:MM" in local time; send both as null to be open whenever the switch is on
+    opens_at: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    closes_at: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    # South African VAT numbers are 10 digits starting with 4
+    vat_number: Optional[str] = Field(default=None, pattern=r"^4\d{9}$")
 
     class Config:
         extra = "forbid"
 
 
-def _profile(restaurant: Restaurant) -> dict:
+def _profile(restaurant: Restaurant, db: Session) -> dict:
+    chosen, options = cats.for_owner(db, restaurant.id)
     return {
         "id": restaurant.id, "name": restaurant.name, "address": restaurant.address,
         "description": restaurant.description, "logo_img_url": restaurant.logo_img_url,
         "is_active": bool(restaurant.is_active),
+        "category": restaurant.category,
+        "accepting_orders": restaurant.accepting_orders is not False,
+        "opens_at": restaurant.opens_at, "closes_at": restaurant.closes_at,
+        "vat_number": restaurant.vat_number,
+        "is_open": restaurant_info.is_open_now(restaurant),
+        "category_ids": chosen,
+        "category_options": options,
+        "max_categories": cats.MAX_PER_RESTAURANT,
     }
 
 
@@ -113,8 +132,8 @@ def _refresh_public_listing(restaurant_id: str) -> None:
 
 
 @router.get("/restaurant")
-def read_profile(restaurant: Restaurant = Depends(get_current_restaurant)) -> dict:
-    return _profile(restaurant)
+def read_profile(db: Session = Depends(get_db), restaurant: Restaurant = Depends(get_current_restaurant)) -> dict:
+    return _profile(restaurant, db)
 
 
 @router.patch("/restaurant")
@@ -124,13 +143,46 @@ def update_profile(
     restaurant: Restaurant = Depends(get_current_restaurant),
     user=Depends(restaurant_user),
 ) -> dict:
-    owner_only(restaurant, user)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    # Staff may open and close the kitchen for the day; everything else is the owner's
+    if set(changes) - {"accepting_orders"}:
+        owner_only(restaurant, user)
+    category_ids = changes.pop("category_ids", None)
+    if "category" in changes:
+        name = changes.pop("category")
+        if category_ids is None:
+            category_ids = [cats.id_for_name(db, name)] if name else []
+    if category_ids is not None:
+        cats.set_for_restaurant(db, restaurant, category_ids)
+    for required in ("name", "address"):
+        if required in changes and not changes[required]:
+            raise HTTPException(status_code=400, detail=f"The {required} cannot be empty")
+    for key, value in changes.items():
         setattr(restaurant, key, value)
+    if bool(restaurant.opens_at) != bool(restaurant.closes_at):
+        raise HTTPException(status_code=400, detail="Set both an opening and a closing time, or neither")
     db.commit()
     db.refresh(restaurant)
     _refresh_public_listing(restaurant.id)
-    return _profile(restaurant)
+    return _profile(restaurant, db)
+
+
+@router.get("/reviews")
+def restaurant_reviews(db: Session = Depends(get_db), restaurant: Restaurant = Depends(get_current_restaurant)) -> dict:
+    """What customers said about this restaurant's orders (newest first)."""
+    average, count = restaurant_info.ratings(db, restaurant.id).get(restaurant.id, (None, 0))
+    rows = db.query(OrderReview, User).join(User, User.id == OrderReview.customer_id).filter(
+        OrderReview.restaurant_id == restaurant.id
+    ).order_by(OrderReview.created_at.desc()).limit(50).all()
+    return {
+        "rating": average,
+        "review_count": count,
+        "reviews": [
+            {"id": review.id, "order_id": review.order_id, "rating": review.rating, "comment": review.comment,
+             "created_at": review.created_at, "customer_name": customer.name}
+            for review, customer in rows
+        ],
+    }
 
 
 @router.post("/restaurant/logo")
@@ -148,7 +200,7 @@ async def upload_logo(
     db.refresh(restaurant)
     uploads.delete_uploaded(previous)
     _refresh_public_listing(restaurant.id)
-    return _profile(restaurant)
+    return _profile(restaurant, db)
 
 
 @router.delete("/restaurant/logo")
@@ -163,7 +215,7 @@ def remove_logo(
     db.commit()
     db.refresh(restaurant)
     _refresh_public_listing(restaurant.id)
-    return _profile(restaurant)
+    return _profile(restaurant, db)
 
 
 @router.get("/stats")

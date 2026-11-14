@@ -106,3 +106,24 @@ def test_a_removed_driver_is_never_assigned(login):
     owner.delete(f"/manage/drivers/{world['driver'].user['id']}")
     orphan = new_accepted_order()
     assert orphan["driver_id"] is None and orphan["status"] == "waiting_for_driver"
+
+
+def test_driver_profile_and_vehicle(login, admin):
+    """The driver's settings screen: who they deliver for, and editing their vehicle."""
+    world["owner"].post("/manage/drivers", json={"email": "shift.driver2@example.com", "password": "password123", "name": "Sbu",
+                                                 "sur_name": "N", "contact_number": "0851110009", "vehicle_type": "Bicycle"})
+    driver = login("shift.driver2@example.com")
+    profile = driver.get("/drivers/profile").json()
+    assert profile["restaurant_name"] == "Shift Kitchen" and profile["restaurant_id"] == world["restaurant"]
+    assert (profile["name"], profile["contact_number"], profile["vehicle_type"]) == ("Sbu", "0851110009", "Bicycle")
+
+    saved = driver.post("/drivers/profile", json={"vehicle_type": "Motorbike", "vehicle_number": "ABC 123 MP"})
+    assert saved.status_code == 200, saved.text
+    assert (saved.json()["vehicle_type"], saved.json()["vehicle_number"]) == ("Motorbike", "ABC 123 MP")
+    assert saved.json()["restaurant_name"] == "Shift Kitchen"  # editing the vehicle does not detach the driver
+    assert driver.post("/drivers/profile", json={"vehicle_type": ""}).status_code == 422
+
+    # the driver edits their own details and password like everyone else
+    assert driver.patch("/users/me", json={"contact_number": "0851110010"}).status_code == 200
+    assert driver.get("/drivers/profile").json()["contact_number"] == "0851110010"
+    assert driver.post("/auth/change-password", json={"current_password": "password123", "new_password": "new-driver-pass"}).status_code == 200

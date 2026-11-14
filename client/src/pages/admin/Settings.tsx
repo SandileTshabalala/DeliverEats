@@ -21,6 +21,83 @@ const Row = ({ ok, title, detail }: { ok: boolean; title: string; detail: string
     </li>
 );
 
+const EMPTY_BUSINESS = { business_name: '', business_address: '', support_email: '', support_phone: '', vat_number: '' };
+
+/** Who runs the platform: printed on subscription invoices, the legal pages and the landing page. */
+const BusinessDetailsCard = ({ onSaved }: { onSaved: () => void }) => {
+    const [form, setForm] = useState(EMPTY_BUSINESS);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        platform.business()
+            .then(saved => setForm({
+                business_name: saved.business_name ?? '', business_address: saved.business_address ?? '',
+                support_email: saved.support_email ?? '', support_phone: saved.support_phone ?? '', vat_number: saved.vat_number ?? '',
+            }))
+            .catch(error => toast.error(errorMessage(error, 'Could not load your business details')));
+    }, []);
+
+    const save = async (event: React.FormEvent) => {
+        event.preventDefault();
+        setSaving(true);
+        try {
+            await platform.saveBusiness(form);
+            toast.success(form.vat_number ? 'Saved. New invoices are tax invoices showing VAT.' : 'Business details saved');
+            onSaved();
+        } catch (error) {
+            toast.error(errorMessage(error, 'Could not save your business details'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const field = (key: keyof typeof EMPTY_BUSINESS) => ({
+        value: form[key],
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [key]: event.target.value }),
+    });
+
+    return (
+        <form onSubmit={save} className={card}>
+            <div>
+                <h2 className="text-xl font-bold text-white">Business details</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                    Printed on the invoices restaurants get for their plan, and shown on the Privacy and Terms pages and the landing page.
+                </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className={label} htmlFor="biz-name">Registered business name</label>
+                    <input id="biz-name" className={input} placeholder="Deliver Eats (Pty) Ltd" maxLength={120} {...field('business_name')} />
+                </div>
+                <div>
+                    <label className={label} htmlFor="biz-vat">VAT number (only if VAT registered)</label>
+                    <input id="biz-vat" className={input} inputMode="numeric" maxLength={10} pattern="4[0-9]{9}" placeholder="4xxxxxxxxx"
+                        value={form.vat_number} onChange={e => setForm({ ...form, vat_number: e.target.value.replace(/\D/g, '') })} />
+                </div>
+                <div className="md:col-span-2">
+                    <label className={label} htmlFor="biz-address">Business address</label>
+                    <input id="biz-address" className={input} placeholder="Street, area, city, postal code" maxLength={300} {...field('business_address')} />
+                </div>
+                <div>
+                    <label className={label} htmlFor="biz-email">Support email</label>
+                    <input id="biz-email" type="email" className={input} placeholder="help@yourdomain.co.za" maxLength={120} {...field('support_email')} />
+                </div>
+                <div>
+                    <label className={label} htmlFor="biz-phone">Support phone</label>
+                    <input id="biz-phone" type="tel" className={input} placeholder="011 555 0123" maxLength={30} {...field('support_phone')} />
+                </div>
+            </div>
+            <p className="text-xs text-gray-600">
+                With a VAT number, subscription invoices become tax invoices showing the 15% VAT included in the price.
+                Leave it empty if you are not VAT registered.
+            </p>
+            <button disabled={saving} className="px-6 py-3 bg-brand-600 hover:bg-brand-500 disabled:opacity-60 text-white font-bold rounded-xl">
+                {saving ? 'Saving...' : 'Save business details'}
+            </button>
+        </form>
+    );
+};
+
 const Settings = () => {
     const { user, reloadUser } = useAuth();
     const [account, setAccount] = useState({ name: '', sur_name: '', contact_number: '', email: '' });
@@ -92,10 +169,12 @@ const Settings = () => {
                 <p className="text-gray-400 mt-1">What is switched on for the platform, and your own account.</p>
             </div>
 
+            <BusinessDetailsCard onSaved={() => platform.system().then(setStatus).catch(() => undefined)} />
+
             <section className={card}>
                 <div>
                     <h2 className="text-xl font-bold text-white">Platform status</h2>
-                    <p className="text-sm text-gray-500 mt-1">These are set in the server's env file, so keys never pass through the browser. Change them there and restart the server.</p>
+                    <p className="text-sm text-gray-500 mt-1">Connections to SMS, email and PayFast are set in the server's env file, so their keys never pass through the browser. Change them there and restart the server.</p>
                 </div>
                 {!status ? <p className="text-gray-500 text-sm">Loading...</p> : (
                     <>
@@ -108,6 +187,8 @@ const Settings = () => {
                                 detail={status.payfast.configured ? (status.payfast.sandbox ? 'On, in sandbox mode: no real money is taken' : 'On, live') : 'Off. Restaurants can only pay by EFT or cash, which you record under Subscriptions.'} />
                             <Row ok={status.subscriptions.enforced} title="Subscriptions enforced"
                                 detail={status.subscriptions.enforced ? `Yes. Unpaid restaurants are hidden ${status.subscriptions.grace_days} days after their plan ends.` : 'No. Every restaurant is open whether it has paid or not. Set SUBSCRIPTIONS_ENFORCED=true when your plans are assigned.'} />
+                            <Row ok={status.legal_contact_set} title="Business details on the Privacy and Terms pages"
+                                detail={status.legal_contact_set ? 'Set' : 'Not set. Fill in Business details above: PayFast and POPIA expect them to be published.'} />
                             <Row ok={status.secrets_encryption_key_set} title="Encryption key for restaurants' PayFast keys"
                                 detail={status.secrets_encryption_key_set ? 'Set' : 'Not set: a key derived from the JWT secret is used. Set ENCRYPTION_KEY before restaurants save PayFast details.'} />
                         </ul>
@@ -123,6 +204,7 @@ const Settings = () => {
                     </>
                 )}
             </section>
+
 
             <form onSubmit={saveAccount} className={card}>
                 <div>

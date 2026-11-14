@@ -44,13 +44,16 @@ class RateLimiter:
         self.limit = limit
         self.window = window
         self.user_based = user_based
-        self.skip = skip or settings.DEBUG  # Skip rate limiting in debug mode
+        # DEBUG is a text setting ("development"), so `skip or settings.DEBUG` was
+        # always true and switched this limiter off everywhere.
+        self.skip = skip
 
     async def _get_identifier(self, request: Request) -> str:
         """Get rate limit identifier (IP or user ID)."""
         if self.user_based and request.user.is_authenticated:
             return f"user:{request.user.id}"
-        return f"ip:{request.client.host}"
+        # Behind the proxy every connection comes from the proxy: use the real caller
+        return f"ip:{_client_ip(request.scope)}"
 
     async def _get_limits(self, request: Request) -> tuple[int, int]:
         """Get rate limits based on user role."""
@@ -148,40 +151,27 @@ class RateLimiter:
 
             if self.skip:
                 return await call_func()
-                
+
+            # Only the limit check is guarded. The route itself runs exactly once:
+            # the old code retried it after ANY error, so a request that saved
+            # something and then failed ran twice.
             try:
-                # Get rate limit key
                 identifier = await self._get_identifier(request)
                 limit, window = await self._get_limits(request)
-                key = f"rate_limit:{self.key_prefix}:{identifier}"
-                
-                # Check rate limit
-                result = await self._check_rate_limit(key, limit, window)
-                
-                if not result["allowed"]:
-                    return await self._rate_limit_response(
-                        request,
-                        limit=result["limit"],
-                        remaining=result["remaining"],
-                        retry_after=result["retry_after"]
-                    )
-                
-                # Add rate limit headers to successful responses
-                response = await call_func()
-
-                if isinstance(response, Response):
-                    response.headers.update({
-                        "X-RateLimit-Limit": str(limit),
-                        "X-RateLimit-Remaining": str(result["remaining"]),
-                        "X-RateLimit-Reset": str(int(time.time()) + self.window)
-                    })
-                return response
-                
+                result = await self._check_rate_limit(f"rate_limit:{self.key_prefix}:{identifier}", limit, window)
             except Exception as e:
-                # Always allow requests through on error
-                print(f"Error in rate limiter: {e}")
+                logger.error(f"Rate limiter unavailable, allowing request: {e}")
                 return await call_func()
-                
+
+            if not result["allowed"]:
+                # FastAPI turns this into a normal error reply (with CORS headers)
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many requests. Please wait a moment and try again.",
+                    headers={"Retry-After": str(result["retry_after"])},
+                )
+            return await call_func()
+
         return wrapper
 
 # Global rate limit decorator
@@ -211,7 +201,10 @@ AUTH_PATHS = (
     "/api/v1/auth/change-password",
 )
 # Called by PayFast's servers, never by browsers: must not be throttled
-WEBHOOK_PATHS = ("/api/v1/payments/payfast/notify", "/api/v1/billing/payfast/notify")
+WEBHOOK_PATHS = (
+    "/api/v1/payments/payfast/notify", "/api/v1/billing/payfast/notify",
+    "/api/v1/payments/ozow/notify", "/api/v1/payments/peach/notify", "/api/v1/payments/peach/return",
+)
 UNLIMITED_PREFIXES = ("/docs", "/redoc", "/openapi", "/health")
 
 

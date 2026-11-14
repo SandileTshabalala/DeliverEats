@@ -54,6 +54,7 @@ class SubscriptionRead(BaseModel):
     plan: Optional[PlanRead] = None
     current_period_end: Optional[datetime] = None
     auto_renews: bool = False
+    recurring_active: bool = False
     orders_this_month: int = 0
     orders_limit: Optional[int] = None
     limit_reached: bool = False
@@ -81,6 +82,8 @@ class AdminSubscriptionUpdate(BaseModel):
     status: Optional[Literal["trialing", "active", "suspended", "cancelled"]] = None
     current_period_end: Optional[datetime] = None
     note: Optional[str] = Field(default=None, max_length=500)
+    # set after cancelling the restaurant's debit order on the PayFast dashboard
+    stop_recurring: Optional[bool] = None
 
     class Config:
         extra = "forbid"
@@ -99,6 +102,7 @@ class SubscriptionPaymentRead(BaseModel):
     status: str
     method: str
     reference: Optional[str] = None
+    invoice_number: Optional[int] = None
     created_at: datetime
 
     class Config:
@@ -114,6 +118,15 @@ class PaymentSettingsRead(BaseModel):
     payfast_merchant_key: Optional[str] = None  # mask only
     payfast_passphrase: Optional[str] = None  # mask only
     payfast_sandbox: bool
+    ozow_enabled: bool = False
+    ozow_site_code: Optional[str] = None
+    ozow_client_id: Optional[str] = None
+    ozow_client_secret: Optional[str] = None  # mask only
+    ozow_sandbox: bool = False
+    peach_enabled: bool = False
+    peach_entity_id: Optional[str] = None
+    peach_secret_token: Optional[str] = None  # mask only
+    peach_sandbox: bool = False
 
 
 class PaymentSettingsUpdate(BaseModel):
@@ -124,6 +137,15 @@ class PaymentSettingsUpdate(BaseModel):
     payfast_merchant_key: Optional[str] = Field(default=None, max_length=80)
     payfast_passphrase: Optional[str] = Field(default=None, max_length=80)
     payfast_sandbox: Optional[bool] = None
+    ozow_enabled: Optional[bool] = None
+    ozow_site_code: Optional[str] = Field(default=None, max_length=50)
+    ozow_client_id: Optional[str] = Field(default=None, max_length=200)
+    ozow_client_secret: Optional[str] = Field(default=None, max_length=500)
+    ozow_sandbox: Optional[bool] = None
+    peach_enabled: Optional[bool] = None
+    peach_entity_id: Optional[str] = Field(default=None, max_length=32)
+    peach_secret_token: Optional[str] = Field(default=None, max_length=200)
+    peach_sandbox: Optional[bool] = None
 
     class Config:
         extra = "forbid"

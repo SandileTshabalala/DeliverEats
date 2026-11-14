@@ -5,6 +5,11 @@ export interface DriverProfile {
     vehicle_type: string;
     vehicle_number: string | null;
     is_available: boolean;
+    name?: string | null;
+    sur_name?: string | null;
+    contact_number?: string | null;
+    restaurant_id?: string | null;
+    restaurant_name?: string | null;
 }
 
 export const driverService = {

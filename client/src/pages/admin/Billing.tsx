@@ -74,7 +74,7 @@ const Billing = () => {
     const planFor = (subscription: Subscription) =>
         chosenPlan[subscription.restaurant_id] || subscription.plan?.id || plans.find(p => p.is_active)?.id || '';
 
-    const act = async (subscription: Subscription, action: 'assign' | 'paid' | 'suspend' | 'resume') => {
+    const act = async (subscription: Subscription, action: 'assign' | 'paid' | 'suspend' | 'resume' | 'stop_recurring') => {
         const planId = planFor(subscription);
         if ((action === 'assign' || action === 'paid') && !planId) {
             toast.error('Create a plan first');
@@ -84,6 +84,14 @@ const Billing = () => {
             if (action === 'assign') await adminBilling.setSubscription(subscription.restaurant_id, { plan_id: planId });
             if (action === 'suspend') await adminBilling.setSubscription(subscription.restaurant_id, { status: 'suspended' });
             if (action === 'resume') await adminBilling.setSubscription(subscription.restaurant_id, { status: 'active' });
+            if (action === 'stop_recurring') {
+                const sure = window.confirm(
+                    `Only do this AFTER cancelling ${subscription.restaurant_name}'s subscription in your PayFast dashboard.\n\n` +
+                    'It lets the restaurant choose a plan and pay again. If the PayFast debit is still running, they would be charged twice.'
+                );
+                if (!sure) return;
+                await adminBilling.setSubscription(subscription.restaurant_id, { stop_recurring: true });
+            }
             if (action === 'paid') {
                 const note = window.prompt(`Record a payment from ${subscription.restaurant_name}.\nReference or note (EFT ref, cash, ...):`, '');
                 if (note === null) return;
@@ -187,7 +195,12 @@ const Billing = () => {
                                     </td>
                                     <td className="px-5 py-4 text-gray-400 whitespace-nowrap">
                                         {formatDate(subscription.current_period_end)}
-                                        {subscription.auto_renews && <span className="block text-[10px] text-gray-600 uppercase tracking-widest">Auto-renews</span>}
+                                        {subscription.recurring_active && (
+                                            <span className="block text-[10px] text-gray-600 uppercase tracking-widest">
+                                                PayFast debit order ·{' '}
+                                                <button onClick={() => act(subscription, 'stop_recurring')} className="underline hover:text-white normal-case tracking-normal">mark stopped</button>
+                                            </span>
+                                        )}
                                     </td>
                                     <td className={clsx("px-5 py-4", subscription.limit_reached ? "text-red-500 font-bold" : "text-gray-400")}>
                                         {subscription.orders_this_month}{subscription.orders_limit ? ` / ${subscription.orders_limit}` : ''}

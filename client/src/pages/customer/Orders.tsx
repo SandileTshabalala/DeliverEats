@@ -1,4 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCart } from '../../context/CartContext';
+import { RotateCcw } from 'lucide-react';
+import { InvoiceButton } from '../../components/ReportControls';
+import { formatRand } from '../../context/CartContext';
+import OrderProgress from '../../components/OrderProgress';
 import {
     Clock,
     CheckCircle2,
@@ -10,7 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { useOrderWebSocket } from '../../hooks/useOrderWebSocket';
@@ -19,6 +24,7 @@ import type { OrderPerson } from '../../services/orders';
 
 interface OrderItem {
     id: string;
+    menu_item_id: string;
     description: string | null;
     quantity: number;
     price: number;
@@ -37,6 +43,9 @@ interface Order {
     payment_status?: string;
     restaurant_name?: string;
     driver?: OrderPerson | null;
+    delivery_lat?: number | null;
+    delivery_lng?: number | null;
+    my_rating?: number | null;
     // restaurant: { name: string }; // Assuming backend expands restaurant relation
 }
 
@@ -72,10 +81,17 @@ const Orders = () => {
         if (!payment || handledReturn.current) return;
         handledReturn.current = true;
 
-        if (payment === 'success') {
-            toast.success('Thanks! We are confirming your payment with PayFast.', { duration: 6000 });
-            // The confirmation can land a moment after the redirect: check again shortly
-            const timers = [3000, 8000, 20000].map(ms => setTimeout(fetchOrders, ms));
+        if (payment === 'success' || payment === 'returned') {
+            toast.success('Thanks! We are confirming your payment.', { duration: 6000 });
+            const returnedOrder = searchParams.get('order');
+            // Ask the payment company now where it supports that (Ozow), then check
+            // again shortly: the confirmation can arrive a moment after the customer
+            const check = () => {
+                const ask = returnedOrder ? api.post(`/payments/order/${returnedOrder}/check`).catch(() => undefined) : Promise.resolve();
+                ask.finally(fetchOrders);
+            };
+            check();
+            const timers = [4000, 10000, 25000].map(ms => setTimeout(check, ms));
             setSearchParams({}, { replace: true });
             return () => timers.forEach(clearTimeout);
         }
@@ -84,6 +100,39 @@ const Orders = () => {
         }
         setSearchParams({}, { replace: true });
     }, [searchParams, setSearchParams, fetchOrders]);
+
+    // Allowed only until the restaurant accepts, and not once it is paid online
+    const [cancelling, setCancelling] = useState<string | null>(null);
+    const cancelOrder = async (order: Order) => {
+        if (!window.confirm(`Cancel your order ${orderRef(order.id)} from ${order.restaurant_name || 'the restaurant'}?`)) return;
+        setCancelling(order.id);
+        try {
+            await api.post(`/orders/${order.id}/cancel`);
+            toast.success('Order cancelled');
+            fetchOrders();
+        } catch (error: any) {
+            const detail = error.response?.data?.detail;
+            toast.error(typeof detail === 'string' ? detail : 'Could not cancel the order');
+        } finally {
+            setCancelling(null);
+        }
+    };
+
+    // Put the same dishes back in the cart. The server re-prices them at checkout
+    // and says if something is no longer on the menu.
+    const { addToCart, updateQuantity } = useCart();
+    const navigate = useNavigate();
+    const orderAgain = (order: Order) => {
+        order.items.forEach(item => {
+            addToCart({
+                id: item.menu_item_id, name: item.name, description: item.description, price: Number(item.price),
+                is_available: true, restaurant_id: order.restaurant_id, restaurant_name: order.restaurant_name,
+            });
+            if (item.quantity > 1) updateQuantity(item.menu_item_id, item.quantity - 1);
+        });
+        toast.success('Added to your cart');
+        navigate('/customer/cart');
+    };
 
     const paymentBadge = (order: Order) => {
         if (order.status === 'cancelled') return null;
@@ -233,6 +282,15 @@ const Orders = () => {
                                             <span className="w-1 h-1 rounded-full bg-gray-800 font-normal">•</span>
                                             <span className="font-normal">{new Date(order.created_at || Date.now()).toLocaleDateString()}</span>
                                         </div>
+                                        {order.status === 'pending' && order.payment_status !== 'completed' && (
+                                            <button
+                                                onClick={event => { event.stopPropagation(); cancelOrder(order); }}
+                                                disabled={cancelling === order.id}
+                                                className="text-sm font-bold text-red-500 hover:text-red-400 disabled:opacity-60"
+                                            >
+                                                {cancelling === order.id ? 'Cancelling...' : 'Cancel order'}
+                                            </button>
+                                        )}
                                         {order.driver && !['delivered', 'cancelled'].includes(order.status) && (
                                             <p className="text-sm text-gray-400">
                                                 Your driver: <span className="text-white font-bold">{fullName(order.driver) || 'Assigned'}</span>
@@ -282,42 +340,33 @@ const Orders = () => {
                                                                 </div>
                                                                 <div className="text-right">
                                                                     <span className="text-xs font-black text-white block">x{item.quantity}</span>
-                                                                    <span className="text-[10px] text-gray-500 font-bold">R {item.price}</span>
+                                                                    <span className="text-[10px] text-gray-500 font-bold">{formatRand(item.price)}</span>
                                                                 </div>
                                                             </li>
                                                         ))}
                                                     </ul>
                                                 </div>
 
-                                                {/* Tracking UI (Simplified for now) */}
+                                                {/* Where the order is */}
                                                 <div className="space-y-6">
-                                                    <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Status Updates</h4>
-                                                    <div className="relative pl-8 space-y-12">
-                                                        <div className="absolute left-1.5 top-0 bottom-0 w-0.5 bg-gray-800"></div>
-
-                                                        <div className="relative flex items-start space-x-4">
-                                                            <div className="absolute -left-[30px] p-1.5 bg-green-500 text-black rounded-full shadow-lg shadow-green-500/20"><CheckCircle2 size={12} /></div>
-                                                            <div>
-                                                                <p className="font-black uppercase italic text-sm text-white">Order Placed</p>
-                                                                <p className="text-xs text-gray-500 font-medium">We've received your order.</p>
-                                                            </div>
-                                                        </div>
-
-                                                        {['preparing', 'ready', 'picked_up', 'delivered'].includes(order.status.toLowerCase()) && (
-                                                            <div className="relative flex items-start space-x-4">
-                                                                <div className="absolute -left-[30px] p-1.5 bg-brand-500 text-white rounded-full shadow-lg shadow-brand-500/20"><Clock size={12} /></div>
-                                                                <div>
-                                                                    <p className="font-black uppercase italic text-sm text-white">Processing</p>
-                                                                    <p className="text-xs text-gray-500 font-medium">The kitchen is working on it.</p>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest">Progress</h4>
+                                                    <OrderProgress order={order} onChanged={fetchOrders} />
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-800">
-                                                <button className="flex-1 py-4 bg-gray-900 hover:bg-gray-800 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all border border-gray-800">
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-6 border-t border-gray-800">
+                                                {(order.status === 'delivered' || order.payment_status === 'completed') && (
+                                                    <InvoiceButton path={`/orders/${order.id}/invoice.pdf`} fallbackName={`invoice-${order.id.slice(0, 8).toUpperCase()}.pdf`} label="Download invoice" />
+                                                )}
+                                                {['delivered', 'cancelled'].includes(order.status) && (
+                                                    <button
+                                                        onClick={() => orderAgain(order)}
+                                                        className="inline-flex items-center justify-center space-x-2 px-5 py-3 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-xl text-sm"
+                                                    >
+                                                        <RotateCcw size={16} /><span>Order again</span>
+                                                    </button>
+                                                )}
+                                                <button onClick={() => setExpandedOrder(null)} className="flex-1 py-4 bg-gray-900 hover:bg-gray-800 text-white font-black uppercase tracking-widest text-xs rounded-2xl transition-all border border-gray-800">
                                                     Close Details
                                                 </button>
                                             </div>
@@ -331,9 +380,9 @@ const Orders = () => {
 
             {/* Empty State Link */}
             <div className="pt-12 text-center">
-                <p className="text-gray-600 font-bold mb-6 italic italic uppercase tracking-widest">Hungry for more?</p>
+                <p className="text-gray-600 font-bold mb-6 italic uppercase tracking-widest">Hungry for more?</p>
                 <Link
-                    to="/customer"
+                    to="/customer/restaurants"
                     className="inline-flex items-center space-x-4 px-10 py-5 bg-gray-900 border border-gray-800 rounded-3xl hover:border-brand-500 transition-all group"
                 >
                     <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center group-hover:rotate-12 transition-transform shadow-xl shadow-brand-600/20 text-white">
@@ -342,7 +391,7 @@ const Orders = () => {
                     <div className="text-left">
                         <p className="text-xs font-black uppercase tracking-widest text-gray-500 mb-1">Explore</p>
                         <div className="flex items-center space-x-2">
-                            <span className="text-xl font-black text-white italic uppercase tracking-tighter">New Restaurants</span>
+                            <span className="text-xl font-black text-white italic uppercase tracking-tighter">All restaurants</span>
                             <ArrowRight size={20} className="text-brand-500" />
                         </div>
                     </div>

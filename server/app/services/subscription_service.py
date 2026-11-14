@@ -15,6 +15,8 @@ from decimal import Decimal
 from typing import List, Optional, Tuple
 
 from fastapi import HTTPException
+from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -122,6 +124,8 @@ def describe(db: Session, restaurant: Restaurant) -> dict:
         "plan": plan,
         "current_period_end": subscription.current_period_end if subscription else None,
         "auto_renews": bool(subscription and subscription.payfast_token and subscription.status == "active"),
+        # A PayFast debit order is running: starting another checkout would charge twice every month
+        "recurring_active": bool(subscription and subscription.payfast_token),
         "orders_this_month": used,
         "orders_limit": limit,
         "limit_reached": limit is not None and used >= limit,
@@ -271,18 +275,39 @@ def send_subscription_reminders(db: Session) -> int:
     return sent
 
 
+def ensure_invoice_number(db: Session, payment: SubscriptionPayment) -> None:
+    """
+    Give a completed payment the next invoice number, once. Numbers follow the
+    order payments were completed in, never change and are never reused.
+    """
+    if payment.status != "completed" or payment.invoice_number:
+        return
+    from sqlalchemy.exc import IntegrityError
+    for _ in range(5):  # two payments completing at the same moment: retry with the next number
+        payment.invoice_number = (db.query(func.max(SubscriptionPayment.invoice_number)).scalar() or 0) + 1
+        try:
+            db.commit()
+            return
+        except IntegrityError:
+            db.rollback()
+    raise RuntimeError("Could not assign an invoice number")
+
+
 def record_manual_payment(db: Session, restaurant: Restaurant, plan_id: str, amount: Optional[Decimal], note: Optional[str]) -> RestaurantSubscription:
     """Admin received an EFT / cash payment outside PayFast."""
     plan = get_plan(db, plan_id)
-    db.add(SubscriptionPayment(
+    payment = SubscriptionPayment(
         restaurant_id=restaurant.id,
         plan_id=plan.id,
         amount=amount if amount is not None else plan.price,
         status="completed",
         method="manual",
         reference=(note or "Recorded by admin")[:250],
-    ))
-    return extend_subscription(db, restaurant.id, plan)
+    )
+    db.add(payment)
+    subscription = extend_subscription(db, restaurant.id, plan)
+    ensure_invoice_number(db, payment)
+    return subscription
 
 
 def admin_set_subscription(db: Session, restaurant: Restaurant, data: dict) -> RestaurantSubscription:
@@ -303,6 +328,9 @@ def admin_set_subscription(db: Session, restaurant: Restaurant, data: dict) -> R
         db.add(subscription)
 
     subscription.plan_id = plan.id
+    if data.get("stop_recurring"):
+        # The admin cancelled the debit order on PayFast: the restaurant may now check out again
+        subscription.payfast_token = None
     if data.get("status"):
         subscription.status = data["status"]
     if data.get("current_period_end"):
@@ -341,6 +369,12 @@ def subscribe(db: Session, restaurant: Restaurant, plan_id: str, user) -> dict:
         raise HTTPException(status_code=400, detail="That plan is no longer offered")
 
     subscription = get_subscription(db, restaurant.id)
+    if subscription is not None and subscription.payfast_token:
+        raise HTTPException(
+            status_code=409,
+            detail="Your plan is already paid automatically by PayFast every month. To change plan, contact us "
+                   "first so we stop the current debit order and you are not charged twice.",
+        )
     if subscription is None and plan.trial_days > 0:
         subscription = RestaurantSubscription(
             restaurant_id=restaurant.id,
@@ -380,8 +414,8 @@ def subscribe(db: Session, restaurant: Restaurant, plan_id: str, user) -> dict:
         amount=plan.price,
         item_name=f"{plan.name} plan - {restaurant.name}",
         item_description=f"Subscription billed every {plan.interval_months} month(s)",
-        return_url=f"{frontend}/restaurant/settings?billing=success",
-        cancel_url=f"{frontend}/restaurant/settings?billing=cancelled",
+        return_url=f"{frontend}/restaurant/payment?status=success",
+        cancel_url=f"{frontend}/restaurant/payment?status=cancelled",
         notify_url=f"{api}{settings.API_V1_STR}/billing/payfast/notify",
         name_first=user.name,
         name_last=user.sur_name,
@@ -424,6 +458,8 @@ def handle_subscription_itn(db: Session, pairs: List[Tuple[str, str]], remote_ip
     pf_payment_id = data.get("pf_payment_id")
 
     if status == "COMPLETE":
+        # Two notifications for the same charge can arrive at the same moment: handle them one at a time
+        first = db.query(SubscriptionPayment).filter(SubscriptionPayment.id == first.id).with_for_update().one()
         # PayFast repeats notifications: each real charge has its own pf_payment_id
         if pf_payment_id and db.query(SubscriptionPayment).filter(
             SubscriptionPayment.reference == pf_payment_id, SubscriptionPayment.status == "completed"
@@ -432,12 +468,20 @@ def handle_subscription_itn(db: Session, pairs: List[Tuple[str, str]], remote_ip
         if first.status == "pending":
             first.status = "completed"
             first.reference = pf_payment_id
+            charged = first
         else:
-            db.add(SubscriptionPayment(
+            charged = SubscriptionPayment(
                 restaurant_id=first.restaurant_id, plan_id=first.plan_id, amount=first.amount,
                 status="completed", method="payfast", parent_id=first.id, reference=pf_payment_id,
-            ))
-        db.commit()
+            )
+            db.add(charged)
+        try:
+            db.commit()
+        except IntegrityError:
+            # the database already holds this pf_payment_id (unique): a repeat, nothing more to do
+            db.rollback()
+            return
+        ensure_invoice_number(db, charged)
         extend_subscription(db, first.restaurant_id, first.plan, token=data.get("token"))
     elif status in ("FAILED", "CANCELLED"):
         if first.status == "pending":

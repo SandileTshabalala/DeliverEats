@@ -112,11 +112,19 @@ class ChangePasswordRequest(BaseModel):
 @router.post("/change-password")
 def change_password(
     payload: ChangePasswordRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Signed-in user changes their own password (the current one is required)."""
+    """
+    Signed-in user changes their own password (the current one is required).
+    Every OTHER device is signed out, as after a reset: if someone else knew the
+    old password, changing it must lock them out. This device stays signed in.
+    """
+    import hashlib
+    from datetime import datetime, timezone
     from app.core.security import hash_password, verify_password
+    from app.models.refresh_tokens import RefreshToken
 
     user = db.query(User).filter(User.id == current_user.id).first()
     if not user or not verify_password(payload.current_password, user.password_hash):
@@ -124,5 +132,12 @@ def change_password(
     if payload.new_password == payload.current_password:
         raise HTTPException(status_code=400, detail="Choose a password that is different from the current one")
     user.password_hash = hash_password(payload.new_password)
+    others = db.query(RefreshToken).filter(RefreshToken.user_id == user.id, RefreshToken.is_revoked == False)  # noqa: E712
+    this_device = request.cookies.get("refresh_token")
+    if this_device:
+        others = others.filter(RefreshToken.token_hash != hashlib.sha256(this_device.encode()).hexdigest())
+    others.update({"is_revoked": True, "revoked_at": datetime.now(timezone.utc)}, synchronize_session=False)
     db.commit()
-    return {"message": "Password changed"}
+    from app.core.security import mark_password_changed
+    mark_password_changed(user.id, keep_jti=getattr(request.state, "token_jti", None))
+    return {"message": "Password changed. Other devices have been signed out."}

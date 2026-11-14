@@ -13,3 +13,6 @@ from .refresh_tokens import RefreshToken
 from .subscription import SubscriptionPlan, RestaurantSubscription, SubscriptionPayment
 from .restaurant_payment_settings import RestaurantPaymentSettings
 from .restaurant_delivery_settings import RestaurantDeliverySettings
+from .order_review import OrderReview
+from .platform_setting import PlatformSetting
+from .category import Category, RestaurantCategory

@@ -60,6 +60,6 @@ async def update_user(db: Session, user_id: str, update_data: dict):
     
     # Invalidate cache
     redis = await get_async_redis()
-    await redis.delete(f"user_profile:{user_id}")
+    await redis.delete(f"lvovo:user_profile:{user_id}")
     
     return user

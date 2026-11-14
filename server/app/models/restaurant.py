@@ -14,6 +14,21 @@ class Restaurant(Base):
     address = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
 
+    # Copy of the main category name (app.services.categories keeps it in sync)
+    category = Column(String, nullable=True)
+    # The owner's own open / closed switch (separate from is_active, which is the platform's)
+    accepting_orders = Column(Boolean, nullable=False, default=True, server_default="true")
+    # Daily opening hours as "HH:MM" local time. Both empty = open whenever the switch is on.
+    opens_at = Column(String(5), nullable=True)
+    closes_at = Column(String(5), nullable=True)
+    # When the restaurant is VAT registered: its order invoices become tax invoices
+    vat_number = Column(String(20), nullable=True)
+
+    @property
+    def is_open(self):
+        from app.services.restaurant_info import is_open_now
+        return is_open_now(self)
+
     #relationships
     admin_id = Column(String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     admin = relationship("User", back_populates="restaurants")

@@ -154,7 +154,10 @@ async def refresh_access_token(
         # token it was probably replayed: end all of that user's sessions.
         def revoke_family():
             stale = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
-            if stale:
+            # Only a token that was already USED to refresh means theft. One
+            # ended by logout or by the session limit was never used: that
+            # device simply signs in again, the others are left alone.
+            if stale and stale.last_used_at is not None:
                 db.query(RefreshToken).filter(
                     RefreshToken.user_id == stale.user_id,
                     RefreshToken.is_revoked == False
@@ -308,4 +311,6 @@ def reset_password(db: Session, token: str, new_password: str) -> None:
     ).update({"is_revoked": True, "revoked_at": datetime.now(timezone.utc)})
     db.commit()
     redis_client.delete(key)  # single use
+    from app.core.security import mark_password_changed
+    mark_password_changed(user.id)  # sign-ins from before the reset stop working now
     redis_client.delete(f"lvovo:user_profile:{user.id}")

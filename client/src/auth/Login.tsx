@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { Link as ForgotLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import { ArrowRight, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
+import AuthShell, { authButton, authInput, authLabel } from './AuthShell';
+import { APP_NAME } from '../config/brand';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../hooks/useNavigation';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { loginUser: login, loading } = useAuth();
   const { loginRedirect } = useNavigation();
 
@@ -15,89 +19,53 @@ const Login = () => {
       const userData = await login(email, password);
       loginRedirect(userData.user.role);
     } catch (err) {
-      // Error is already handled in AuthContext
+      // the error message is shown by AuthContext
       console.error('Login error:', err);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-brand-400">
-          Sign in to your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-400">
-          Or{' '}
-          <a
-            href="/register"
-            className="font-medium text-brand-500 hover:text-brand-400 transition-colors"
-          >
-            create a new account
-          </a>
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-                Email address
-              </label>
-              <div className="mt-1">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-500 focus:border-brand-500 bg-gray-700 text-white sm:text-sm"
-                  placeholder="you@example.com"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300">
-                Password
-              </label>
-              <div className="mt-1">
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-500 focus:border-brand-500 bg-gray-700 text-white sm:text-sm"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
-
-            <div className="text-sm text-right">
-              <ForgotLink to="/forgot-password" className="font-medium text-brand-500 hover:text-brand-400 transition-colors">
-                Forgot your password?
-              </ForgotLink>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                {loading ? 'Signing in...' : 'Sign in'}
-              </button>
-            </div>
-          </form>
-
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to order, or to run your kitchen and deliveries."
+      footer={<>New to {APP_NAME}? <Link to="/register" className="font-bold text-brand-500 hover:text-brand-400">Create an account</Link></>}
+    >
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="email" className={authLabel}>Email address</label>
+          <div className="relative">
+            <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <input id="email" name="email" type="email" autoComplete="email" required autoFocus
+              value={email} onChange={(e) => setEmail(e.target.value)} className={authInput} placeholder="you@example.com" />
+          </div>
         </div>
-      </div>
-    </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label htmlFor="password" className="text-sm font-bold text-gray-300">Password</label>
+            <Link to="/forgot-password" className="text-sm font-bold text-brand-500 hover:text-brand-400">Forgot password?</Link>
+          </div>
+          <div className="relative">
+            <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <input id="password" name="password" type={showPassword ? 'text' : 'password'} autoComplete="current-password" required
+              value={password} onChange={(e) => setPassword(e.target.value)} className={`${authInput} pr-12`} placeholder="Your password" />
+            <button type="button" onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-500 hover:text-white">
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" disabled={loading} className={authButton}>
+          {loading ? <><Loader2 size={18} className="animate-spin" /> Signing in...</> : <>Sign in <ArrowRight size={18} /></>}
+        </button>
+
+        <p className="text-xs text-gray-500 text-center leading-relaxed">
+          Restaurant staff and drivers: use the email and password your restaurant set up for you.
+        </p>
+      </form>
+    </AuthShell>
   );
 };
 

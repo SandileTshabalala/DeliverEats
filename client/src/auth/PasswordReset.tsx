@@ -3,24 +3,15 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import { errorMessage } from '../services/billing';
+import AuthShell, { authButton, authInput } from './AuthShell';
 
-const field = "appearance-none block w-full px-3 py-2 border border-gray-700 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand-500 focus:border-brand-500 bg-gray-700 text-white sm:text-sm";
-const button = "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed";
+const field = authInput.replace('pl-12 pr-4', 'px-4') + " mt-2";
+const button = authButton;
 
 const Shell = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="min-h-screen bg-gray-900 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-            <h1 className="text-center text-3xl font-extrabold text-white">{title}</h1>
-        </div>
-        <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-            <div className="bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10 space-y-6">
-                {children}
-                <p className="text-center text-sm">
-                    <Link to="/login" className="font-medium text-brand-500 hover:text-brand-400">Back to sign in</Link>
-                </p>
-            </div>
-        </div>
-    </div>
+    <AuthShell title={title} footer={<Link to="/login" className="font-bold text-brand-500 hover:text-brand-400">Back to sign in</Link>}>
+        <div className="space-y-6">{children}</div>
+    </AuthShell>
 );
 
 export const ForgotPassword = () => {

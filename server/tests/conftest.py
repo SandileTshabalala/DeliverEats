@@ -130,3 +130,15 @@ def admin(client, db, login):
         ))
         db.commit()
     return login("boss@example.com")
+
+
+@pytest.fixture(autouse=True)
+def _no_real_address_lookups(monkeypatch):
+    """Tests never call the real OpenStreetMap service: it would look like it is down."""
+    import requests
+    from app.services import geocoding_service
+
+    def offline(*args, **kwargs):
+        raise requests.ConnectionError("address lookups are offline in tests")
+
+    monkeypatch.setattr(geocoding_service, "_http_get", offline)

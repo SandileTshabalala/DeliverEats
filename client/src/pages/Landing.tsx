@@ -1,343 +1,390 @@
+import { useEffect, useMemo, useState } from 'react';
+import ThemeToggle from '../components/ThemeToggle';
 import { Link } from 'react-router-dom';
 import {
-    UtensilsCrossed,
-    ArrowRight,
-    Star,
-    Flame,
-    ChevronDown,
-    Instagram,
-    Facebook,
-    Twitter
+    ArrowRight, Banknote, Bike, ChevronDown, Clock, FileText, MapPin, Menu as MenuIcon, Navigation,
+    Smartphone, Star, Store, Utensils, Wallet, X,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { clsx } from 'clsx';
 import images from '../constant/images';
+import { APP_NAME, TAGLINE } from '../config/brand';
+import Logo from '../components/Logo';
+import { sells, useCategories } from '../components/CategoryRail';
+import { fallbackImage } from '../services/categories';
+import { assetUrl } from '../services/platform';
 import { usePublicStats } from '../hooks/usePublicStats';
+import { useSite } from '../services/site';
+import { restaurantService, type Restaurant } from '../services/restaurant';
+import RestaurantCard from '../components/RestaurantCard';
+
+const SECTIONS = [
+    { id: 'how-it-works', label: 'How it works' },
+    { id: 'food', label: 'Food' },
+    { id: 'restaurants', label: 'For restaurants' },
+    { id: 'drivers', label: 'Drivers' },
+    { id: 'faq', label: 'FAQ' },
+];
+
+// Food tiles come from Admin > Categories: the ones restaurants sell, in the admin's order.
+const MAX_FOOD_TILES = 9;
+
+const FAQ = [
+    {
+        q: 'How do I pay?',
+        a: 'Each restaurant chooses what it accepts: cash on delivery, its card machine at your door, or paying online in the app (card or instant EFT). You see the options at checkout.',
+    },
+    {
+        q: 'Where do you deliver?',
+        a: 'Each restaurant sets how far it delivers and its own delivery fee. Add your address and the app shows you who delivers to you and what delivery costs before you pay.',
+    },
+    {
+        q: 'Can I see where my order is?',
+        a: 'Yes. You see every step, from the kitchen accepting your order to the driver picking it up, and you can follow the driver on a map while it is on the way.',
+    },
+    {
+        q: 'How does a restaurant join, and what does it cost?',
+        a: 'Restaurants pay a small monthly plan instead of a commission on every order, and keep all of their order money. Contact us below to get your restaurant listed.',
+    },
+];
+
+/** Scroll to a section, leaving room for the fixed header. */
+const goTo = (id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return;
+    window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+};
+
+const SectionLink = ({ id, children, className, onNavigate }: { id: string; children: React.ReactNode; className?: string; onNavigate?: () => void }) => (
+    <a
+        href={`#${id}`}
+        className={className}
+        onClick={event => {
+            event.preventDefault();
+            onNavigate?.();
+            goTo(id);
+            window.history.replaceState(null, '', `#${id}`);
+        }}
+    >
+        {children}
+    </a>
+);
+
+const Step = ({ icon: Icon, title, text }: { icon: typeof Store; title: string; text: string }) => (
+    <div className="p-6 bg-gray-900 border border-gray-800 rounded-3xl space-y-3">
+        <span className="w-12 h-12 rounded-2xl bg-brand-500/10 text-brand-500 flex items-center justify-center"><Icon size={22} /></span>
+        <h3 className="text-lg font-bold text-white">{title}</h3>
+        <p className="text-gray-400 leading-relaxed">{text}</p>
+    </div>
+);
 
 const Landing = () => {
     const publicStats = usePublicStats();
-    return (
-        <div className="min-h-screen bg-gray-950 text-white font-sans selection:bg-brand-500/30 overflow-x-hidden">
-            {/* Navigation */}
-            <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-950/40 backdrop-blur-2xl border-b border-white/5">
-                <div className="max-w-7xl mx-auto px-6 h-24 flex justify-between items-center">
-                    <div className="flex items-center space-x-4 group cursor-pointer">
-                        <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-brand-600/40 group-hover:rotate-12 transition-transform duration-500">
-                            <UtensilsCrossed className="text-white w-7 h-7" />
-                        </div>
-                        <div className="flex flex-col -space-y-1">
-                            <span className="text-3xl font-black tracking-tighter uppercase italic text-white">L'vovo</span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-brand-500">Premium Grill</span>
-                        </div>
-                    </div>
+    const site = useSite();
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
 
-                    <div className="hidden md:flex items-center space-x-12">
-                        {['Menu', 'About', 'Locations', 'Reviews'].map((item) => (
-                            <a key={item} href={`#${item.toLowerCase()}`} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors">
-                                {item}
-                            </a>
+    useEffect(() => {
+        restaurantService.listRestaurants().then(list => setRestaurants(list.filter(r => r.is_active))).catch(() => undefined);
+    }, []);
+
+    // Categories some restaurant sells. Before any restaurant has picked one,
+    // show the platform's categories that have a picture so the section is not empty.
+    const categories = useCategories();
+    const food = useMemo(() => {
+        const withPicture = categories
+            .map(c => ({ name: c.name, image: c.image_url ? assetUrl(c.image_url) : fallbackImage(c.name) }));
+        const sold = withPicture.filter(c => restaurants.some(r => sells(r, c.name)));
+        if (sold.length) return sold.slice(0, MAX_FOOD_TILES);
+        // nobody has picked categories yet: show each stock photo only once
+        const seen = new Set<string>();
+        return withPicture.filter(c => c.image && !seen.has(c.image) && seen.add(c.image)).slice(0, MAX_FOOD_TILES);
+    }, [categories, restaurants]);
+
+    // Arriving at /#faq from another page: scroll there once the page has rendered
+    useEffect(() => {
+        const id = window.location.hash.slice(1);
+        if (id) setTimeout(() => goTo(id), 100);
+    }, []);
+
+    const contact = site?.support_email
+        ? { href: `mailto:${site.support_email}?subject=${encodeURIComponent(`List my restaurant on ${APP_NAME}`)}`, label: `Email ${site.support_email}` }
+        : site?.support_phone
+            ? { href: `tel:${site.support_phone.replace(/[^\d+]/g, '')}`, label: `Call ${site.support_phone}` }
+            : null;
+
+    return (
+        <div className="min-h-screen bg-gray-950 text-white font-sans overflow-x-hidden">
+            {/* Navigation */}
+            <nav className="fixed top-0 left-0 right-0 z-50 bg-gray-950/80 backdrop-blur-xl border-b border-white/5">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex justify-between items-center">
+                    <Link to="/" className="flex items-center space-x-3" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                        <Logo className="h-11" />
+                    </Link>
+
+                    <div className="hidden lg:flex items-center space-x-8">
+                        {SECTIONS.map(section => (
+                            <SectionLink key={section.id} id={section.id} className="text-sm font-bold text-gray-400 hover:text-white transition-colors">
+                                {section.label}
+                            </SectionLink>
                         ))}
                     </div>
 
-                    <div className="flex items-center space-x-6">
-                        <Link to="/login" className="text-xs font-black uppercase tracking-widest text-white hover:text-brand-500 transition-colors">Sign In</Link>
-                        <Link
-                            to="/register"
-                            className="px-8 py-4 bg-white text-black text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:bg-brand-600 hover:text-white transition-all shadow-2xl active:scale-95"
-                        >
-                            Order Now
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <ThemeToggle />
+                        <Link to="/login" className="hidden sm:inline text-sm font-bold text-white hover:text-brand-400 transition-colors px-2">Sign in</Link>
+                        <Link to="/register" className="px-5 py-2.5 bg-brand-600 hover:bg-brand-500 text-white text-sm font-bold rounded-xl transition-colors">
+                            Order now
                         </Link>
+                        <button
+                            className="lg:hidden p-2 text-gray-300 hover:text-white"
+                            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+                            aria-expanded={menuOpen}
+                            onClick={() => setMenuOpen(!menuOpen)}
+                        >
+                            {menuOpen ? <X size={24} /> : <MenuIcon size={24} />}
+                        </button>
                     </div>
                 </div>
+                {menuOpen && (
+                    <div className="lg:hidden border-t border-white/5 bg-gray-950 px-4 py-4 space-y-1">
+                        {SECTIONS.map(section => (
+                            <SectionLink key={section.id} id={section.id} onNavigate={() => setMenuOpen(false)}
+                                className="block px-3 py-3 rounded-xl text-base font-bold text-gray-300 hover:bg-gray-900 hover:text-white">
+                                {section.label}
+                            </SectionLink>
+                        ))}
+                        <Link to="/login" className="block px-3 py-3 rounded-xl text-base font-bold text-gray-300 hover:bg-gray-900 hover:text-white">Sign in</Link>
+                    </div>
+                )}
             </nav>
 
-            {/* Immersive Hero Section */}
-            <header className="relative h-screen flex items-center justify-center overflow-hidden">
-                {/* Visual Asset: Hero Image */}
-                <div className="absolute inset-0 z-0">
-                    <img
-                        src={images.grilledChicken}
-                        alt="Signature Charcoal Grilled Chicken"
-                        loading="lazy"
-                        className="w-full h-full object-cover scale-105"
-                    />
-                    <div className="absolute inset-0 bg-linear-gradient-to-t from-gray-950 via-gray-950/40 to-transparent"></div>
-                    <div className="absolute inset-0 bg-black/40"></div>
-                </div>
-
-                <div className="relative z-10 max-w-6xl mx-auto px-6 text-center space-y-12">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="inline-flex items-center space-x-3 px-6 py-2 bg-white/5 backdrop-blur-md border border-white/10 rounded-full"
-                    >
-                        <Flame size={16} className="text-brand-500 fill-current" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white">Est. 2024 • Matafini Masterpiece</span>
-                    </motion.div>
-
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.1, duration: 0.8 }}
-                    >
-                        <h1 className="text-7xl md:text-[10rem] font-black tracking-tighter leading-[0.8] uppercase italic drop-shadow-2xl">
-                            Fire <br />
-                            <span className="text-transparent border-t-2 border-b-2 border-white/20 px-8 py-2 bg-clip-text bg-linear-gradient-to-t from-brand-500 to-brand-400">Forged</span>
+            {/* Hero */}
+            <header className="keep-dark relative min-h-[92vh] flex items-center overflow-hidden pt-20">
+                <img src={images.heroGrill} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-950 via-gray-950/85 to-gray-950/30" />
+                <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 w-full">
+                    <div className="max-w-2xl space-y-8">
+                        <span className="inline-flex items-center space-x-2 px-4 py-1.5 bg-white/10 border border-white/10 rounded-full text-sm font-bold">
+                            <MapPin size={14} className="text-brand-400" /><span>{TAGLINE}</span>
+                        </span>
+                        <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight leading-[0.95]">
+                            Your favourite local food, <span className="text-brand-500">delivered to your door.</span>
                         </h1>
-                    </motion.div>
-
-                    <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.4 }}
-                        className="max-w-2xl mx-auto text-gray-300 text-lg md:text-2xl font-medium leading-relaxed italic"
-                    >
-                        "The soul of the street, served with the elegance of a masterpiece."
-                    </motion.p>
-
-                    <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6 }}
-                        className="flex flex-col sm:flex-row items-center justify-center gap-8 pt-6"
-                    >
-                        <Link
-                            to="/register"
-                            className="w-full sm:w-auto px-12 py-6 bg-brand-600 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-[0_20px_50px_rgba(242,100,24,0.3)] hover:bg-brand-500 hover:scale-110 active:scale-95 transition-all group flex items-center space-x-4"
-                        >
-                            <span>Start Your Order</span>
-                            <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                        </Link>
+                        <p className="text-lg md:text-xl text-gray-300 leading-relaxed">
+                            Order from the shisanyamas, kota spots and kitchens in your area. Pay cash, card or online, and follow your
+                            delivery all the way to your door.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <Link to="/register" className="inline-flex items-center justify-center space-x-2 px-8 py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-2xl transition-colors">
+                                <span>Start ordering</span><ArrowRight size={18} />
+                            </Link>
+                            <SectionLink id="restaurants" className="inline-flex items-center justify-center px-8 py-4 bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold rounded-2xl transition-colors">
+                                List your restaurant
+                            </SectionLink>
+                        </div>
                         {publicStats && publicStats.restaurants > 0 && (
-                            <span className="text-xs font-black uppercase tracking-widest text-white">
-                                {publicStats.restaurants} local {publicStats.restaurants === 1 ? 'kitchen' : 'kitchens'}
+                            <p className="text-sm font-bold text-gray-300">
+                                {publicStats.restaurants} local {publicStats.restaurants === 1 ? 'kitchen' : 'kitchens'} taking orders
                                 {publicStats.orders_delivered > 0 && ` · ${publicStats.orders_delivered} orders delivered`}
-                            </span>
+                            </p>
                         )}
-                    </motion.div>
+                    </div>
                 </div>
-
-                <motion.div
-                    animate={{ y: [0, 10, 0] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="absolute bottom-12 left-1/2 -translate-x-1/2 text-gray-500 border border-white/10 p-2 rounded-full backdrop-blur-md"
-                >
-                    <ChevronDown size={24} />
-                </motion.div>
+                <SectionLink id="how-it-works" className="absolute bottom-8 left-1/2 -translate-x-1/2 p-2 rounded-full border border-white/15 text-gray-400 hover:text-white">
+                    <span className="sr-only">How it works</span><ChevronDown size={22} />
+                </SectionLink>
             </header>
 
-            {/* Atmosphere Section */}
-            <section className="py-40 px-6 relative overflow-hidden bg-gray-950">
-                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
-                    <div className="space-y-12 relative z-10">
-                        <div className="space-y-4">
-                            <h2 className="text-xs font-black text-brand-500 uppercase tracking-[0.5em]">The Craft</h2>
-                            <h3 className="text-5xl md:text-8xl font-black uppercase tracking-tighter italic leading-[0.85]">Taste the <br /> <span className="text-gray-400">Tradition</span></h3>
-                        </div>
-
-                        <div className="space-y-8 text-gray-400 text-lg leading-relaxed">
-                            <p>
-                                At L'vovo, we don't just grill chicken; we orchestrate a symphony of smoke, flame, and spice. Every bird is marinated for 24 hours in our secret Matafini blend before meeting the intense heat of raw charcoal.
-                            </p>
-                            <p className="italic text-white font-bold border-l-4 border-brand-600 pl-8">
-                                "It's not just food—it's the heartbeat of our streets brought to life on your plate."
-                            </p>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-12 pt-8">
-                            <div>
-                                <p className="text-4xl font-black italic text-white mb-1 tracking-tighter">100%</p>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Natural Charcoal</p>
-                            </div>
-                            <div>
-                                <p className="text-4xl font-black italic text-white mb-1 tracking-tighter">Local</p>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Premium Produce</p>
-                            </div>
-                        </div>
+            {/* How it works */}
+            <section id="how-it-works" className="py-24 px-4 sm:px-6">
+                <div className="max-w-7xl mx-auto space-y-12">
+                    <div className="max-w-2xl space-y-3">
+                        <p className="text-sm font-black text-brand-500 uppercase tracking-widest">How it works</p>
+                        <h2 className="text-4xl md:text-5xl font-black tracking-tight">Hungry to fed in three steps</h2>
                     </div>
-
-                    <div className="relative group">
-                        {/* Visual Asset: Atmosphere Image */}
-                        <div className="absolute -inset-4 bg-brand-600/20 blur-2xl rounded-[60px] opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-                        <div className="relative rounded-[60px] overflow-hidden border border-white/10 shadow-3xl">
-                            <img
-                                src={images.halfchicken}
-                                alt="Authentic Grill Atmosphere"
-                                loading="lazy"
-                                className="w-full h-full object-cover grayscale-[0.3] group-hover:grayscale-0 group-hover:scale-105 transition-all duration-700"
-                            />
-                        </div>
-
-                        {/* Floating Badge */}
-                        <div className="absolute -bottom-10 -right-10 w-44 h-44 bg-brand-600 rounded-full flex flex-col items-center justify-center p-6 text-center shadow-2xl rotate-12 group-hover:rotate-0 transition-transform duration-500">
-                            <p className="text-2xl font-black italic uppercase leading-none text-white">Chef's</p>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-brand-100">Choice 2024</p>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Step icon={Store} title="1. Pick a kitchen" text="See which local restaurants are open and deliver to you, with their menus, prices and delivery fee up front." />
+                        <Step icon={Wallet} title="2. Order and pay your way" text="Cash on delivery, the restaurant's card machine at your door, or pay online in the app. You choose at checkout." />
+                        <Step icon={Navigation} title="3. Follow it to your door" text="Get a message when the kitchen accepts and when your food leaves, and follow your driver on the map." />
                     </div>
                 </div>
             </section>
 
-            {/* Signature Platters Section */}
-            <section className="py-40 bg-gray-900/30 border-y border-white/5 px-6 overflow-hidden">
-                <div className="max-w-7xl mx-auto space-y-24">
-                    <div className="flex flex-col items-center text-center space-y-6">
-                        <h2 className="text-xs font-black text-brand-500 uppercase tracking-[0.5em]">The Showcase</h2>
-                        <h3 className="text-4xl md:text-7xl font-black uppercase tracking-tighter italic">Signature <br className="md:hidden" /> Platters</h3>
-                        <div className="w-24 h-1 bg-brand-600/30 rounded-full"></div>
+            {/* Food */}
+            <section id="food" className="py-24 px-4 sm:px-6 bg-gray-900/40 border-y border-white/5">
+                <div className="max-w-7xl mx-auto space-y-12">
+                    <div className="max-w-2xl space-y-3">
+                        <p className="text-sm font-black text-brand-500 uppercase tracking-widest">Food</p>
+                        <h2 className="text-4xl md:text-5xl font-black tracking-tight">Something for every craving</h2>
+                        <p className="text-gray-400 text-lg">From the braai stand on the corner to the kitchen down the road.</p>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+                        {food.length === 0 && [1, 2, 3, 4, 5, 6].map(i => <div key={i} className="aspect-[4/3] rounded-3xl bg-gray-900 animate-pulse" />)}
+                        {food.map(food => (
+                            <Link key={food.name} to="/register" className="keep-dark group relative aspect-[4/3] rounded-3xl overflow-hidden border border-white/5 bg-gradient-to-br from-gray-800 to-gray-900">
+                                {food.image
+                                    ? <img src={food.image} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                    : <Utensils className="absolute right-5 top-5 w-10 h-10 text-gray-600" />}
+                                <span className="absolute inset-0 bg-gradient-to-t from-gray-950/90 via-gray-950/20 to-transparent" />
+                                <span className="absolute left-4 bottom-4 text-lg md:text-xl font-black">{food.name}</span>
+                            </Link>
+                        ))}
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-                        <div className="relative order-2 lg:order-1 transition-all duration-700 hover:rotate-2">
-                            {/* Visual Asset: Platter Image */}
-                            <img
-                                src={images.coleslaw}
-                                alt="L'vovo Family Platter"
-                                loading="lazy"
-                                className="rounded-[40px] shadow-3xl border border-white/5"
-                            />
-                        </div>
-
-                        <div className="space-y-10 order-1 lg:order-2">
-                            <div className="space-y-4">
-                                <h4 className="text-3xl font-black uppercase italic tracking-tighter leading-none">The Matafini <br /> Family Feast</h4>
-                                <p className="text-gray-400 text-lg leading-relaxed">
-                                    Our most popular selection. Featuring a whole charcoal-grilled chicken, six varieties of house-made chakalaka, velvet pap, and our signature peri-peri flame dip.
-                                </p>
+                    {restaurants.length > 0 && (
+                        <div className="space-y-6 pt-6">
+                            <h3 className="text-2xl font-black">Taking orders on {APP_NAME}</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {restaurants.slice(0, 6).map(restaurant => <RestaurantCard key={restaurant.id} restaurant={restaurant} />)}
                             </div>
-
-                            <ul className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {[
-                                    '24h Brined Chicken',
-                                    'House Chakalaka',
-                                    'Traditional Pap',
-                                    'Golden Corn',
-                                    'Flame Peri-Peri',
-                                    'Rustic Fries'
-                                ].map((item) => (
-                                    <li key={item} className="flex items-center space-x-3 text-sm font-black uppercase tracking-widest text-gray-300">
-                                        <div className="w-1.5 h-1.5 bg-brand-500 rounded-full"></div>
-                                        <span>{item}</span>
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <button className="flex items-center space-x-4 text-brand-500 font-bold group">
-                                <span className="uppercase tracking-[0.3em] text-[10px]">View the full experience</span>
-                                <div className="p-3 bg-brand-600/10 rounded-xl group-hover:bg-brand-600/20 transition-colors">
-                                    <ArrowRight size={18} />
-                                </div>
-                            </button>
                         </div>
-                    </div>
+                    )}
                 </div>
             </section>
 
-            {/* Testimonials Grid */}
-            <section className="py-40 px-6">
-                <div className="max-w-7xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        {[
-                            { name: "Thabo M.", role: "Local Foodie", text: "Finally, a platform that respects the craft of street grilling. The best chicken in the province, delivered hot." },
-                            { name: "Sindi L.", role: "Chef", text: "The smoke Profile is incredible. You can taste the authenticity in every single bite. A true Matafini gem." },
-                            { name: "John D.", role: "Regular", text: "Fast delivery, premium packaging, and that unmistakable charcoal flavor. L'vovo is in a league of its own." }
-                        ].map((review, i) => (
-                            <div key={i} className="p-12 bg-gray-900 border border-white/5 rounded-[40px] space-y-8 hover:border-brand-500/30 transition-all group">
-                                <div className="flex text-brand-500">
-                                    {[1, 2, 3, 4, 5].map(star => <Star key={star} size={14} className="fill-current" />)}
-                                </div>
-                                <p className="text-xl font-bold italic text-white leading-relaxed">"{review.text}"</p>
-                                <div className="flex items-center space-x-4 pt-4 border-t border-white/5">
-                                    <div className="w-10 h-10 bg-gray-800 rounded-full"></div>
+            {/* For restaurants */}
+            <section id="restaurants" className="py-24 px-4 sm:px-6">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                    <div className="space-y-8">
+                        <div className="space-y-3">
+                            <p className="text-sm font-black text-brand-500 uppercase tracking-widest">For restaurants</p>
+                            <h2 className="text-4xl md:text-5xl font-black tracking-tight">Keep all your order money</h2>
+                            <p className="text-gray-400 text-lg leading-relaxed">
+                                No commission on your orders. You pay one small monthly plan and every rand your customers spend goes to you.
+                            </p>
+                        </div>
+                        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            {[
+                                { icon: Banknote, title: 'Paid straight to you', text: 'Cash, your own card machine, or your own online payment account.' },
+                                { icon: Bike, title: 'Your own drivers', text: 'Add your drivers in the app. Orders go to them only.' },
+                                { icon: Clock, title: 'Your hours, your fees', text: 'Open and close when you want, and set your own delivery fee.' },
+                                { icon: FileText, title: 'Reports and invoices', text: 'Download your sales and print invoices whenever you need them.' },
+                            ].map(point => (
+                                <li key={point.title} className="flex items-start space-x-3">
+                                    <point.icon size={22} className="text-brand-500 mt-0.5 flex-shrink-0" />
                                     <div>
-                                        <p className="text-sm font-black uppercase italic tracking-tight">{review.name}</p>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-600">{review.role}</p>
+                                        <p className="font-bold text-white">{point.title}</p>
+                                        <p className="text-sm text-gray-400">{point.text}</p>
                                     </div>
-                                </div>
-                            </div>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            {contact ? (
+                                <a href={contact.href} className="inline-flex items-center justify-center space-x-2 px-8 py-4 bg-brand-600 hover:bg-brand-500 text-white font-bold rounded-2xl transition-colors">
+                                    <span>Get listed: {contact.label}</span><ArrowRight size={18} />
+                                </a>
+                            ) : (
+                                <p className="text-gray-400">To list your restaurant, contact the {APP_NAME} team.</p>
+                            )}
+                            <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 bg-gray-900 border border-gray-800 hover:border-gray-700 text-white font-bold rounded-2xl">
+                                Restaurant sign in
+                            </Link>
+                        </div>
+                    </div>
+                    <div className="relative rounded-[40px] overflow-hidden border border-white/10 aspect-[4/5] lg:aspect-auto lg:h-[560px]">
+                        <img src={images.ribsAndChips} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    </div>
+                </div>
+            </section>
+
+            {/* Drivers */}
+            <section id="drivers" className="py-24 px-4 sm:px-6 bg-gray-900/40 border-y border-white/5">
+                <div className="max-w-5xl mx-auto text-center space-y-8">
+                    <div className="space-y-3">
+                        <p className="text-sm font-black text-brand-500 uppercase tracking-widest">Drivers</p>
+                        <h2 className="text-4xl md:text-5xl font-black tracking-tight">Deliver for a kitchen near you</h2>
+                        <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                            Drivers work for a restaurant on {APP_NAME}. Ask the restaurant you deliver for to add you, then sign in to get your jobs.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                        <Step icon={Smartphone} title="Jobs on your phone" text="Go online and new deliveries come to you, with an SMS for each one." />
+                        <Step icon={Navigation} title="Directions included" text="Open the customer's address in your maps app and call them with one tap." />
+                        <Step icon={Banknote} title="Know what to collect" text="Every job tells you whether to collect cash, use the card machine, or nothing because it is paid." />
+                    </div>
+                    <Link to="/login" className="inline-flex items-center space-x-2 px-8 py-4 bg-white text-black hover:bg-brand-500 hover:text-white font-bold rounded-2xl transition-colors">
+                        <span>Driver sign in</span><ArrowRight size={18} />
+                    </Link>
+                </div>
+            </section>
+
+            {/* FAQ */}
+            <section id="faq" className="py-24 px-4 sm:px-6">
+                <div className="max-w-3xl mx-auto space-y-10">
+                    <div className="space-y-3 text-center">
+                        <p className="text-sm font-black text-brand-500 uppercase tracking-widest">FAQ</p>
+                        <h2 className="text-4xl md:text-5xl font-black tracking-tight">Questions people ask</h2>
+                    </div>
+                    <div className="space-y-3">
+                        {FAQ.map(item => (
+                            <details key={item.q} className="group p-6 bg-gray-900 border border-gray-800 rounded-2xl open:border-brand-500/40">
+                                <summary className="flex items-center justify-between cursor-pointer list-none font-bold text-lg">
+                                    <span>{item.q}</span>
+                                    <ChevronDown size={20} className="text-gray-500 group-open:rotate-180 transition-transform flex-shrink-0 ml-4" />
+                                </summary>
+                                <p className="mt-4 text-gray-400 leading-relaxed">{item.a}</p>
+                            </details>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* Final CTA */}
-            <section className="py-20 px-6">
-                <div className="max-w-7xl mx-auto relative group">
-                    <div className="absolute -inset-1 bg-linear-gradient-to-t from-brand-600 to-brand-600 rounded-[80px] blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-                    <div className="relative bg-gray-950 border border-white/10 rounded-[80px] p-12 md:p-32 flex flex-col items-center text-center space-y-12 overflow-hidden shadow-3xl">
-                        <div className="absolute top-0 right-0 p-24 opacity-5 pointer-events-none">
-                            <UtensilsCrossed size={300} className="text-white" />
-                        </div>
-
-                        <h2 className="text-5xl md:text-8xl font-black tracking-tighter leading-none uppercase italic relative z-10 text-white">
-                            The Table <br /> is <span className="text-brand-500">Ready.</span>
-                        </h2>
-                        <p className="max-w-xl text-gray-400 text-lg md:text-xl font-medium relative z-10 leading-relaxed">Join the inner circle of flavor. Get access to exclusive dishes and priority deliveries in Matafini.</p>
-
-                        <div className="flex flex-col sm:flex-row gap-6 relative z-10 w-full justify-center">
-                            <Link
-                                to="/register"
-                                className="px-14 py-7 bg-white text-black font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl shadow-2xl hover:bg-brand-600 hover:text-white transition-all transform hover:scale-105 active:scale-95"
-                            >
-                                Secure My Spot
-                            </Link>
-                            <Link
-                                to="/login"
-                                className="px-14 py-7 bg-gray-900 border border-white/10 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl hover:border-brand-500 transition-all"
-                            >
-                                Member Login
-                            </Link>
-                        </div>
+            {/* Final call to action */}
+            <section className="px-4 sm:px-6 pb-24">
+                <div className="keep-dark max-w-7xl mx-auto rounded-[40px] bg-brand-600 p-10 md:p-16 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div className="space-y-3">
+                        <h2 className="text-3xl md:text-5xl font-black tracking-tight">Hungry? Your kasi is open.</h2>
+                        <p className="text-brand-100 text-lg">Create a free account and order in minutes.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                        <Link to="/register" className="inline-flex items-center justify-center px-8 py-4 bg-gray-950 text-white font-bold rounded-2xl hover:bg-gray-900">
+                            Create account
+                        </Link>
+                        <Link to="/login" className="inline-flex items-center justify-center px-8 py-4 bg-brand-700 hover:bg-brand-800 text-white font-bold rounded-2xl">
+                            Sign in
+                        </Link>
                     </div>
                 </div>
             </section>
 
             {/* Footer */}
-            <footer className="py-32 px-6 border-t border-white/5 bg-gray-950">
-                <div className="max-w-7xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-20">
-                        <div className="col-span-1 md:col-span-2 space-y-8">
-                            <div className="flex items-center space-x-4">
-                                <UtensilsCrossed className="text-brand-600 w-10 h-10" />
-                                <span className="text-4xl font-black tracking-tighter uppercase italic">L'vovo</span>
-                            </div>
-                            <p className="max-w-xs text-gray-500 font-medium leading-relaxed">
-                                Redefining South African street food through premium craft and modern technology. Born in Matafini, bred for the bold.
-                            </p>
-                            <div className="flex space-x-6 text-gray-500">
-                                <Instagram size={20} className="hover:text-brand-500 cursor-pointer transition-colors" />
-                                <Facebook size={20} className="hover:text-brand-500 cursor-pointer transition-colors" />
-                                <Twitter size={20} className="hover:text-brand-500 cursor-pointer transition-colors" />
-                            </div>
+            <footer className="py-16 px-4 sm:px-6 border-t border-white/5">
+                <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-10">
+                    <div className="md:col-span-2 space-y-4">
+                        <div className="flex items-center space-x-3">
+                            <Logo className="h-12" />
                         </div>
-
-                        <div className="space-y-6">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white">Experience</h4>
-                            <ul className="space-y-4 text-[10px] font-black uppercase tracking-widest text-gray-500">
-                                <li className="hover:text-brand-500 cursor-pointer transition-colors">Digital Menu</li>
-                                <li className="hover:text-brand-500 cursor-pointer transition-colors">Our Grillers</li>
-                                <li className="hover:text-brand-500 cursor-pointer transition-colors">Matafini HQ</li>
-                                <li className="hover:text-brand-500 cursor-pointer transition-colors">Sustainability</li>
-                            </ul>
-                        </div>
-
-                        <div className="space-y-6">
-                            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white">Contact</h4>
-                            <ul className="space-y-4 text-[10px] font-black uppercase tracking-widest text-gray-500">
-                                <li className="hover:text-brand-500 cursor-pointer transition-colors">hello@lvovo.com</li>
-                                <li className="hover:text-brand-500 cursor-pointer transition-colors">+27 (0) 13 456 7890</li>
-                                <li className="hover:text-brand-500 cursor-pointer transition-colors">Matafini Main Rd</li>
-                            </ul>
-                        </div>
+                        <p className="max-w-sm text-gray-500 leading-relaxed">
+                            Food from the restaurants in your community, delivered by their own drivers. Every order supports a local business.
+                        </p>
+                        <p className="flex items-center space-x-1 text-sm text-gray-600">
+                            <Star size={14} className="text-brand-500" /><span>Rate your orders to help your favourite spots stand out.</span>
+                        </p>
                     </div>
-
-                    <div className="pt-20 mt-20 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
-                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-600">&copy; 2024 L'vovo Technologies. All Rights Reserved.</p>
-                        <div className="flex space-x-12 text-[10px] font-black uppercase tracking-[0.5em] text-gray-600">
-                            <a href="#" className="hover:text-white transition-colors">Privacy</a>
-                            <a href="#" className="hover:text-white transition-colors">Terms</a>
-                            <span className="text-gray-700">|</span>
-                            <span className="text-gray-700 hover:text-white transition-colors cursor-default">Map data © OpenStreetMap contributors</span>
-                        </div>
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-white">{APP_NAME}</h3>
+                        <ul className="space-y-3 text-sm text-gray-400">
+                            {SECTIONS.map(section => (
+                                <li key={section.id}><SectionLink id={section.id} className="hover:text-white">{section.label}</SectionLink></li>
+                            ))}
+                            <li><Link to="/privacy" className="hover:text-white">Privacy Policy</Link></li>
+                            <li><Link to="/terms" className="hover:text-white">Terms of Use</Link></li>
+                        </ul>
                     </div>
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-white">Contact</h3>
+                        <ul className="space-y-3 text-sm text-gray-400">
+                            {site?.support_email && <li><a href={`mailto:${site.support_email}`} className="hover:text-white">{site.support_email}</a></li>}
+                            {site?.support_phone && <li><a href={`tel:${site.support_phone.replace(/[^\d+]/g, '')}`} className="hover:text-white">{site.support_phone}</a></li>}
+                            {site?.business_address && <li>{site.business_address}</li>}
+                            {site && !site.support_email && !site.support_phone && !site.business_address && <li>Contact details coming soon</li>}
+                        </ul>
+                    </div>
+                </div>
+                <div className={clsx("max-w-7xl mx-auto mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between gap-4 text-sm text-gray-600")}>
+                    <p>&copy; {new Date().getFullYear()} {site?.business_name || APP_NAME}. All rights reserved.</p>
+                    <p>Food photos: Unsplash. Map data © OpenStreetMap contributors.</p>
                 </div>
             </footer>
         </div>

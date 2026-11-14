@@ -47,6 +47,68 @@
   --font-sans: "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/*
+ * LIGHT THEME
+ * -----------
+ * The pages are written once, in the dark palette above. Light mode swaps the
+ * neutrals end for end (gray-950 page background becomes white, gray-100 text
+ * becomes near-black) and makes "white" text dark ink. So every page gets a
+ * light version with no per-page changes. Chosen by data-theme on <html>
+ * (see src/context/ThemeContext.tsx).
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-gray-50: #120f0d;
+  --color-gray-100: #1f1b18;
+  --color-gray-200: #2f2a26;
+  --color-gray-300: #46403a;
+  --color-gray-400: #5f574f;
+  --color-gray-500: #7d746b;
+  --color-gray-600: #a69d94;
+  --color-gray-700: #d6cfc7;
+  --color-gray-800: #e8e3dd;
+  --color-gray-900: #f6f4f1;
+  --color-gray-950: #ffffff;
+  --color-white: #1b1816;
+}
+
+/* Text on a solid colour (orange buttons, green / red badges, orange gradients) stays real white */
+:root[data-theme="light"] :is(
+  .bg-brand-400, .bg-brand-500, .bg-brand-600, .bg-brand-700, .bg-brand-800,
+  .from-brand-400, .from-brand-500, .from-brand-600, .from-brand-700,
+  .bg-green-400, .bg-green-500, .bg-green-600, .bg-red-500, .bg-yellow-500, .bg-purple-500,
+  .hover\:bg-brand-500:hover, .hover\:bg-brand-600:hover, .hover\:bg-brand-700:hover,
+  .hover\:bg-green-600:hover, .hover\:bg-red-500:hover
+) {
+  --color-white: #ffffff;
+}
+
+/* "White" buttons turn dark ink in light mode, so their black text turns white */
+:root[data-theme="light"] .bg-white {
+  --color-black: #ffffff;
+}
+
+/*
+ * Areas with text on top of photos (hero, food tiles, banners) stay dark in
+ * both themes: the dark palette comes back inside them, including the text
+ * colour that elements inherit when they set none of their own.
+ */
+:root[data-theme="light"] .keep-dark {
+  --color-gray-50: #faf8f6;
+  --color-gray-100: #f3f0ec;
+  --color-gray-200: #e6e1db;
+  --color-gray-300: #d2cbc3;
+  --color-gray-400: #a69d94;
+  --color-gray-500: #7d746b;
+  --color-gray-600: #5a524b;
+  --color-gray-700: #403a35;
+  --color-gray-800: #2a2622;
+  --color-gray-900: #1b1816;
+  --color-gray-950: #110f0d;
+  --color-white: #ffffff;
+  color: var(--color-gray-100);
+}
+
 :root {
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -83,3 +145,7 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* The logo has a version for each theme (components/Logo.tsx) */
+:root[data-theme="light"] .logo-for-dark,
+:root:not([data-theme="light"]) .logo-for-light { display: none; }

@@ -3,6 +3,7 @@ from app.core.cache import get_cache, set_cache
 from app.models.restaurant import Restaurant
 from app.schemas.restaurant import RestaurantCreate
 from app.services.subscription_service import is_restaurant_live
+from app.services import categories as cats, restaurant_info
 
 async def get_restaurant(db: Session, restaurant_id: str):
     key = f"restaurant:{restaurant_id}"
@@ -21,14 +22,9 @@ def get_restaurant_by_id(db: Session, restaurant_id: str):
     r = db.query(Restaurant).filter(Restaurant.id == restaurant_id, Restaurant.is_active == True).first()
     if not r or not is_restaurant_live(db, r):
         return None
-    return {
-        "id": r.id,
-        "name": r.name,
-        "description": r.description,
-        "address": r.address,
-        "is_active": r.is_active,
-        "logo_img_url": r.logo_img_url,
-    }
+    return restaurant_info.public_dict(r, restaurant_info.ratings(db, r.id).get(r.id),
+                                      restaurant_info.delivery_terms(db, [r.id]).get(r.id),
+                                      cats.names_by_restaurant(db, [r.id]).get(r.id))
 
 def create_restaurant(db: Session, payload: RestaurantCreate):
     restaurant = Restaurant(**payload.model_dump())  # ✅ Pydantic v2
@@ -39,18 +35,17 @@ def create_restaurant(db: Session, payload: RestaurantCreate):
 
 def fetch_from_db(db: Session):
     restaurants = db.query(Restaurant).filter(Restaurant.is_active == True).all()
-    return [
-        {
-            "id": r.id,
-            "name": r.name,
-            "description": r.description,
-            "address": r.address,
-            "is_active": r.is_active,
-            "logo_img_url": r.logo_img_url,
-        }
+    scores = restaurant_info.ratings(db)  # one query for every restaurant
+    fees = restaurant_info.delivery_terms(db)
+    kinds = cats.names_by_restaurant(db)
+    listed = [
+        restaurant_info.public_dict(r, scores.get(r.id), fees.get(r.id), kinds.get(r.id))
         for r in restaurants
         if is_restaurant_live(db, r)  # hidden while the subscription is suspended / expired
     ]
+    # open kitchens first, then best rated
+    listed.sort(key=lambda r: (not r["is_open"], -(r["rating"] or 0), r["name"].lower()))
+    return listed
 
 async def get_restaurants(db: Session):
     key = "restaurants:list"

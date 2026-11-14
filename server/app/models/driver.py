@@ -26,6 +26,11 @@ class Driver(Base):
     # relationships
     user = relationship("User", back_populates="driver")
     orders = relationship("Order", back_populates="driver")
+    restaurant = relationship("Restaurant", foreign_keys=[restaurant_id])
+
+    @property
+    def restaurant_name(self):
+        return self.restaurant.name if self.restaurant else None
 
     # The person behind the driver profile (drivers share their id with their user)
     @property

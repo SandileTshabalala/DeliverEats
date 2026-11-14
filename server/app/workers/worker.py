@@ -18,6 +18,10 @@ celery_app.conf.beat_schedule = {
         "schedule": 60.0,
     },
     # each restaurant is only messaged once per stage, so running often is safe
+    "ozow-payment-checks-every-2-minutes": {
+        "task": "app.workers.tasks.run_ozow_payment_checks",
+        "schedule": 120.0,
+    },
     "subscription-reminders-every-6-hours": {
         "task": "app.workers.tasks.run_subscription_reminders",
         "schedule": 6 * 60 * 60.0,

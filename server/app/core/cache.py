@@ -34,7 +34,8 @@ async def set_cache(key: str, value: Any, ttl: int = 60) -> None:
     redis = await get_async_redis()
     namespaced_key = make_key(key)
     try:
-        await redis.setex(namespaced_key, ttl, json.dumps(value))
+        # default=str: prices are Decimals and dates are datetimes; both go out as strings anyway
+        await redis.setex(namespaced_key, ttl, json.dumps(value, default=str))
     except Exception as e:
         logger.error(f"Failed to set cache for key={key}: {e}")
 

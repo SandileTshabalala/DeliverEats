@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { newId } from '../../utils/id';
+import { chooseAddress, getChosenAddressId } from '../../hooks/useDeliveryAddress';
+import { assetUrl } from '../../services/platform';
 import { useNavigate, Link } from 'react-router-dom';
 import {
     ShoppingBag,
@@ -12,7 +15,8 @@ import {
     ShieldCheck,
     Banknote,
     HandCoins,
-    Wallet
+    Wallet,
+    Landmark
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { toast } from 'react-hot-toast';
@@ -58,6 +62,10 @@ const Cart = () => {
     const [stripePromise, setStripePromise] = useState<any>(null);
     const [stripePaymentId, setStripePaymentId] = useState<string>('');
     const [submitting, setSubmitting] = useState(false);
+    // One key per checkout. A changed basket or address is a new checkout.
+    const checkoutKey = useRef(newId());
+    const basketSignature = JSON.stringify([items.map(i => [i.id, i.quantity]), selectedAddressId]);
+    useEffect(() => { checkoutKey.current = newId(); }, [basketSignature]);
 
     // Price from the server: food + this restaurant's delivery fee to the chosen address
     const [quote, setQuote] = useState<OrderQuote | null>(null);
@@ -163,12 +171,11 @@ const Cart = () => {
             const response = await api.get('/users/me');
             const fetchedAddresses = response.data.addresses || [];
             setAddresses(fetchedAddresses);
-            const defaultAddr = fetchedAddresses.find((a: any) => a.is_default);
-            if (defaultAddr) {
-                setSelectedAddressId(defaultAddr.id);
-            } else if (fetchedAddresses.length > 0) {
-                setSelectedAddressId(fetchedAddresses[0].id);
-            }
+            // The address picked under "Deliver to", else the default, else the first
+            const chosen = fetchedAddresses.find((a: any) => a.id === getChosenAddressId())
+                ?? fetchedAddresses.find((a: any) => a.is_default)
+                ?? fetchedAddresses[0];
+            if (chosen) setSelectedAddressId(chosen.id);
         } catch (error) {
             console.error('Failed to fetch addresses');
         } finally {
@@ -195,7 +202,8 @@ const Cart = () => {
         const n = name.toLowerCase();
         if (n.includes('card') && n.includes('delivery')) return <HandCoins size={18} />;
         if (n.includes('cash') || n.includes('delivery')) return <Banknote size={18} />;
-        if (n.includes('stripe') || n.includes('payfast') || n.includes('card')) return <CreditCard size={18} />;
+        if (n.includes('ozow')) return <Landmark size={18} />;
+        if (n.includes('stripe') || n.includes('payfast') || n.includes('peach') || n.includes('card')) return <CreditCard size={18} />;
         return <Wallet size={18} />;
     };
 
@@ -237,11 +245,14 @@ const Cart = () => {
         try {
             // 1. Create the order. The server prices it from the menu and takes
             //    the customer from the login, so we only send what was chosen.
+            // The same key for every try of THIS checkout: if the phone resends the
+            // request on a weak signal, the server returns the first order
+            // instead of making a second one.
             const orderResponse = await api.post('/orders/', {
                 restaurant_id: restaurantId,
                 address_id: selectedAddressId,
                 items: items.map(i => ({ menu_item_id: i.id, quantity: i.quantity })),
-            });
+            }, { headers: { 'Idempotency-Key': checkoutKey.current } });
             const orderId = orderResponse.data.id;
 
             // 2. Start the payment for that order
@@ -333,7 +344,7 @@ const Cart = () => {
                             >
                                 <div className="w-24 h-24 bg-gray-800 rounded-2xl overflow-hidden relative border border-gray-800 flex-shrink-0">
                                     {item.image_url ? (
-                                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                                        <img src={assetUrl(item.image_url)} alt={item.name} className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-700">
                                             <ShoppingBag size={32} />
@@ -434,7 +445,7 @@ const Cart = () => {
                                     {addresses.map((addr) => (
                                         <button
                                             key={addr.id}
-                                            onClick={() => setSelectedAddressId(addr.id)}
+                                            onClick={() => { setSelectedAddressId(addr.id); chooseAddress(addr.id); }}
                                             className={clsx(
                                                 "w-full flex items-start space-x-3 p-3 rounded-xl border transition-all text-left",
                                                 selectedAddressId === addr.id

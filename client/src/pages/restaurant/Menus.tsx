@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { assetUrl } from '../../services/platform';
 import {
     UtensilsCrossed,
     Plus,
@@ -141,7 +142,7 @@ const RestaurantMenus = () => {
                                 <div className="h-40 bg-gray-800 relative overflow-hidden">
                                     {item.image_url ? (
                                         <img
-                                            src={item.image_url}
+                                            src={assetUrl(item.image_url)}
                                             alt={item.name}
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                         />

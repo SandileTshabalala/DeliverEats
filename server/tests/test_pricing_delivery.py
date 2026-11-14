@@ -121,3 +121,18 @@ def test_only_the_owner_sets_the_fee_and_values_are_checked():
     assert save(latitude=123).status_code == 422
     assert save(surprise="x").status_code == 422
     assert world["owner"].get("/manage/delivery-settings").json()["base_fee"] == "15.00"
+
+
+def test_restaurant_cards_show_the_delivery_fee(client):
+    """Customers see what delivery costs on the restaurant list, before opening the menu."""
+    save(base_fee="15.00", per_km_fee="5.00", free_delivery_over="150.00", latitude=SHOP[0], longitude=SHOP[1], max_distance_km=None)
+    from app.core.redis import redis_client
+    redis_client.delete("lvovo:restaurants:list")
+    first = client.get("/api/v1/restaurant/").json()
+    # the list is cached (it once failed to cache because prices are Decimals, so every visit hit the database)
+    assert redis_client.get("lvovo:restaurants:list")
+    assert client.get("/api/v1/restaurant/").json() == first
+    card = next(r for r in first if r["id"] == world["restaurant"])
+    assert (card["delivery_fee_from"], card["delivery_per_km"], card["free_delivery_over"]) == ("15.00", True, "150.00")
+    single = client.get(f"/api/v1/restaurant/{world['restaurant']}").json()
+    assert single["delivery_fee_from"] == "15.00"

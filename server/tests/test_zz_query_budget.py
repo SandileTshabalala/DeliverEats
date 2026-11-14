@@ -56,11 +56,11 @@ def people(login):
 BUDGETS = [
     ("customer", "get", "/auth/me", 0),
     ("customer", "get", "/users/me", 3),
-    ("customer", "get", "/orders/my", 5),
+    ("customer", "get", "/orders/my", 6),  # +1: the customer's own ratings
     ("owner", "get", "/restaurant/mine", 3),
     ("owner", "get", "/restaurant/orders", 6),
     ("owner", "get", "/manage/stats", 9),
-    ("owner", "get", "/manage/restaurant", 3),
+    ("owner", "get", "/manage/restaurant", 4),  # + the category list for the picker
     ("owner", "get", "/manage/billing", 8),
     ("driver", "get", "/orders/driver/jobs", 5),
     ("driver", "get", "/drivers/stats", 6),

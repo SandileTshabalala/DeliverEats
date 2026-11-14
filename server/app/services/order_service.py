@@ -15,6 +15,7 @@ from app.models.payment import Payment
 from app.models.restaurant import Restaurant
 from app.models.user_address import UserAddress
 from app.services import delivery_fee as delivery_fee_service
+from app.services import restaurant_info
 from app.services.delivery_service import assign_nearest_driver
 from app.services.driver_service import get_available_driver, on_driver_available
 from app.services.notification_service import send_notification
@@ -43,6 +44,9 @@ ORDER_LOAD_OPTIONS = (
     selectinload(Order.items),
     selectinload(Order.payments).joinedload(Payment.provider),
 )
+
+# The customer's own orders also carry their rating
+CUSTOMER_ORDER_OPTIONS = (*ORDER_LOAD_OPTIONS, selectinload(Order.review))
 
 
 def _status_value(status) -> str:
@@ -115,6 +119,10 @@ def price_order(db: Session, customer_id: str, restaurant_id: str, items: list, 
     ).first()
     if not restaurant:
         raise HTTPException(status_code=404, detail="Restaurant not found or not open")
+
+    if not restaurant_info.is_open_now(restaurant):
+        hours = f" It opens at {restaurant_info.clock(restaurant.opens_at)}." if restaurant.opens_at and restaurant.accepting_orders is not False else ""
+        raise HTTPException(status_code=409, detail=f"{restaurant.name} is closed right now.{hours}")
 
     # Subscription must be in good standing and within the plan's monthly order limit
     from app.services.subscription_service import ensure_can_take_orders
@@ -276,6 +284,48 @@ def assign_driver(db: Session, order_id: str):
     return driver
 
 
+def _refundable_payment(order: Order):
+    """The online payment of a cancelled order, if the customer paid one and it is not refunded yet."""
+    from app.utils.PaymentStatus import is_offline_provider
+    payment = order.paid_payment
+    if payment is None:
+        return None
+    provider = (payment.provider.provider_name if payment.provider else "") or order.payment_method
+    if is_offline_provider(provider):
+        return None  # cash / card machine: nothing was taken before delivery
+    if (payment.provider_metadata or {}).get("needs_refund"):
+        return None  # already asked for
+    return payment
+
+
+def request_refund(db: Session, order: Order, payment: Payment, reason: str) -> None:
+    """
+    The customer paid online for an order that will not be delivered. The money
+    went to the restaurant's own gateway account, so the restaurant refunds it:
+    flag the payment, tell the restaurant what to refund, and tell the customer.
+    """
+    meta = dict(payment.provider_metadata or {})
+    meta.update(needs_refund=True, refund_reason=reason)
+    payment.provider_metadata = meta
+    db.commit()
+
+    ref = short_id(order)
+    provider = (payment.provider.provider_name if payment.provider else "") or "payment"
+    shop = order.restaurant.name if order.restaurant else "the restaurant"
+    send_notification(
+        order.restaurant.admin_id if order.restaurant else None, "Refund needed: paid order cancelled",
+        f"Order #{ref} was cancelled after the customer paid R {payment.amount:.2f} online. Please refund it "
+        f"from your {provider.title()} account. Payment reference: {payment.reference or payment.id}.",
+        sms=True, email=True,
+    )
+    send_notification(
+        order.customer_id, shop,
+        f"Your order #{ref} was cancelled. {shop} has been asked to refund the R {payment.amount:.2f} you paid. "
+        f"Contact the restaurant if you do not see the refund within 7 days.",
+        sms=True, email=True,
+    )
+
+
 def update_order_status(db: Session, order_id: str, new_status: OrderStatus, order: Order = None):
     """
     Move an order to `new_status`. Raises 409 if that step is not allowed from
@@ -310,7 +360,11 @@ def update_order_status(db: Session, order_id: str, new_status: OrderStatus, ord
     if new_status == OrderStatus.PICKED_UP:
         send_notification(order.customer_id, shop, f"Your order #{short_id(order)} is on its way to you.")
     elif new_status == OrderStatus.CANCELLED:
-        send_notification(order.customer_id, shop, f"Your order #{short_id(order)} was cancelled.", email=True)
+        paid = _refundable_payment(order)
+        if paid is not None:
+            request_refund(db, order, paid, "order_cancelled")
+        else:
+            send_notification(order.customer_id, shop, f"Your order #{short_id(order)} was cancelled.", email=True)
         if order.driver_id:
             send_notification(order.driver_id, "Delivery cancelled", f"Order #{short_id(order)} from {shop} was cancelled.")
     elif new_status == OrderStatus.DELIVERED:
@@ -377,11 +431,14 @@ def cancel_stale_orders(db: Session):
         for payment in order.payments:
             if payment.status == PaymentStatus.PENDING:
                 payment.status = PaymentStatus.FAILED
-        # NOTE: an order cancelled here after a completed online payment still
-        # needs a refund, which has to be issued from the PayFast dashboard.
         db.commit()
-        send_notification(
-            order.customer_id, "Order cancelled",
-            f"Your order #{short_id(order)} was cancelled because it could not be completed in time.", email=True,
-        )
+        paid = _refundable_payment(order)
+        if paid is not None:
+            # Paid, but no driver came in time: the restaurant refunds it
+            request_refund(db, order, paid, "no_driver")
+        else:
+            send_notification(
+                order.customer_id, "Order cancelled",
+                f"Your order #{short_id(order)} was cancelled because it could not be completed in time.", email=True,
+            )
         broadcast_order(order)

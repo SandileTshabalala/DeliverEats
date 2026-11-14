@@ -26,6 +26,8 @@ from app.models.refresh_tokens import RefreshToken
 BCRYPT_ROUNDS = 12
 # bcrypt only reads the first 72 bytes; cut explicitly so long passwords work
 _BCRYPT_MAX_BYTES = 72
+# Devices one account can stay signed in on at the same time
+MAX_SESSIONS_PER_USER = 10
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
@@ -94,13 +96,23 @@ async def create_refresh_token(
     expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
     if db is not None:
-        # Revoke old refresh tokens for this user in threadpool
+        # Each device keeps its own session: signing in on the phone must not
+        # sign the restaurant's tablet out. (Refreshing revokes the one token it
+        # used; a replayed old token still ends every session.) Only the oldest
+        # sessions beyond MAX_SESSIONS_PER_USER are ended.
         def sync_db_ops():
-            db.query(RefreshToken).filter(
-                RefreshToken.user_id == user_id,
-                RefreshToken.is_revoked == False
-            ).update({"is_revoked": True})
-            
+            active = (
+                db.query(RefreshToken.id)
+                .filter(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False)  # noqa: E712
+                .order_by(RefreshToken.created_at.desc())
+                .offset(MAX_SESSIONS_PER_USER - 1)
+                .all()
+            )
+            if active:
+                db.query(RefreshToken).filter(RefreshToken.id.in_([row.id for row in active])).update(
+                    {"is_revoked": True, "revoked_at": datetime.now(timezone.utc)}, synchronize_session=False
+                )
+
             db_token = RefreshToken(
                 token_hash=token_hash,
                 user_id=user_id,
@@ -168,13 +180,14 @@ async def get_current_user(
             )
         
         # Check if token is blacklisted
-        if await is_token_blacklisted(token):
+        if await is_token_blacklisted(token) or issued_before_password_change(payload):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token has been revoked",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+        request.state.token_jti = payload.get("jti")
+
         # Get user ID from payload
         user_id = payload.get("sub")
         if not user_id:
@@ -233,6 +246,43 @@ async def get_current_user(
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+# ---------------------------------------------------------------- password changed
+# After a password change or reset, sign-ins made BEFORE it stop working at once,
+# not only when their access token runs out (up to an hour later). Kept in Redis
+# just as long as an access token can live, so no database column is needed.
+def _password_changed_key(user_id: str) -> str:
+    return f"lvovo:password_changed:{user_id}"
+
+
+def mark_password_changed(user_id: str, keep_jti: Optional[str] = None) -> None:
+    """Reject this user's older access tokens. `keep_jti` = the device that made the change stays in."""
+    import json
+    import time
+    try:
+        redis_client.setex(
+            _password_changed_key(user_id),
+            (settings.ACCESS_TOKEN_EXPIRE_MINUTES + 5) * 60,
+            json.dumps({"at": int(time.time()), "keep": keep_jti}),
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Could not record password change: {e}")
+
+
+def issued_before_password_change(payload: Dict[str, Any]) -> bool:
+    import json
+    try:
+        raw = redis_client.get(_password_changed_key(str(payload.get("sub"))))
+    except Exception:
+        return False  # Redis down: same as the blacklist, do not lock everyone out
+    if not raw:
+        return False
+    changed = json.loads(raw)
+    if changed.get("keep") and payload.get("jti") == changed["keep"]:
+        return False
+    return int(payload.get("iat") or 0) < int(changed["at"])
+
 
 async def is_token_blacklisted(token: str) -> bool:
     """Check if a token is blacklisted in Redis."""

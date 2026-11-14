@@ -13,7 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Iterable, Optional
 
 from app.core.locger import logger
-from app.services import messaging
+from app.core.config import settings
+from app.services import inbox, messaging
 
 _pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="notify")
 
@@ -53,6 +54,12 @@ def send_notification(user_id: Optional[str], title: str, message: str, *,
     """Queue a message to one user. Never raises."""
     if not user_id:
         return
+    # Always goes to the bell in the app, whether or not SMS / email are set up
+    link = None
+    if button_url and settings.FRONTEND_URL and button_url.startswith(settings.FRONTEND_URL.rstrip("/")):
+        link = button_url[len(settings.FRONTEND_URL.rstrip("/")):] or "/"
+    if "reset-password" not in (link or ""):  # never keep a password reset link in the inbox
+        inbox.add(user_id, title, message, link)
     sms = sms and messaging.sms_configured()
     email = email and messaging.email_configured()
     if not (sms or email):

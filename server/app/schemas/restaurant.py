@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel
 from typing import List, Optional
 from app.schemas.user import UserRead
@@ -18,6 +20,17 @@ class RestaurantResponse(BaseModel):
     description: str | None
     is_active: bool
     logo_img_url: str | None = None
+    category: str | None = None
+    categories: List[str] = []
+    is_open: bool = True
+    accepting_orders: bool = True
+    opens_at: str | None = None
+    closes_at: str | None = None
+    rating: float | None = None
+    review_count: int = 0
+    delivery_fee_from: Decimal | None = None
+    delivery_per_km: bool = False
+    free_delivery_over: Decimal | None = None
 
     class Config:
         from_attributes = True

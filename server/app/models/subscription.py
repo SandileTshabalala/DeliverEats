@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, text
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -64,6 +64,17 @@ class SubscriptionPayment(Base):
     # First charge of a PayFast subscription: id of that pending row. Renewals point back to it.
     parent_id = Column(String, nullable=True, index=True)
     reference = Column(String, nullable=True, index=True)  # PayFast pf_payment_id, or the admin's note
+    # Sequential invoice number, given when the payment is completed (INV-00001, INV-00002 ...)
+    invoice_number = Column(Integer, nullable=True, unique=True)
     created_at = Column(DateTime, default=utcnow)
 
     plan = relationship("SubscriptionPlan")
+
+
+# A PayFast charge (pf_payment_id) can be recorded as paid only once, even when
+# two notifications for it are processed at the same moment.
+Index(
+    "uq_subscription_payments_pf_charge", SubscriptionPayment.reference, unique=True,
+    postgresql_where=text("method = 'payfast' AND status = 'completed'"),
+    sqlite_where=text("method = 'payfast' AND status = 'completed'"),
+)

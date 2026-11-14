@@ -26,6 +26,8 @@ export interface Subscription {
     plan: Plan | null;
     current_period_end: string | null;
     auto_renews: boolean;
+    /** a PayFast debit order is running: another checkout would charge twice */
+    recurring_active?: boolean;
     orders_this_month: number;
     orders_limit: number | null;
     limit_reached: boolean;
@@ -44,6 +46,7 @@ export interface SubscriptionPayment {
     status: string;
     method: string;
     reference: string | null;
+    invoice_number?: number | null;
     created_at: string;
 }
 
@@ -55,6 +58,15 @@ export interface PaymentSettings {
     payfast_merchant_key: string | null;
     payfast_passphrase: string | null;
     payfast_sandbox: boolean;
+    ozow_enabled: boolean;
+    ozow_site_code: string | null;
+    ozow_client_id: string | null;
+    ozow_client_secret: string | null;
+    ozow_sandbox: boolean;
+    peach_enabled: boolean;
+    peach_entity_id: string | null;
+    peach_secret_token: string | null;
+    peach_sandbox: boolean;
 }
 
 export interface DeliverySettings {
@@ -142,7 +154,7 @@ export const adminBilling = {
     updatePlan: async (id: string, data: Partial<PlanInput>): Promise<Plan> => (await api.patch(`/admin/billing/plans/${id}`, data)).data,
     deletePlan: async (id: string): Promise<{ message: string }> => (await api.delete(`/admin/billing/plans/${id}`)).data,
     subscriptions: async (): Promise<Subscription[]> => (await api.get("/admin/billing/subscriptions")).data,
-    setSubscription: async (restaurantId: string, data: { plan_id?: string; status?: string; current_period_end?: string; note?: string }): Promise<Subscription> =>
+    setSubscription: async (restaurantId: string, data: { plan_id?: string; status?: string; current_period_end?: string; note?: string; stop_recurring?: boolean }): Promise<Subscription> =>
         (await api.put(`/admin/billing/restaurants/${restaurantId}/subscription`, data)).data,
     recordPayment: async (restaurantId: string, data: { plan_id: string; amount?: string; note?: string }): Promise<Subscription> =>
         (await api.post(`/admin/billing/restaurants/${restaurantId}/payments`, data)).data,

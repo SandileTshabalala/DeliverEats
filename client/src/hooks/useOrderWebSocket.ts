@@ -10,7 +10,7 @@ export interface OrderSocketMessage {
 }
 
 /** ws(s)://host/api/v1 derived from the same VITE_API_URL the REST client uses. */
-const socketBaseUrl = (): string => {
+export const socketBaseUrl = (): string => {
     const apiUrl: string = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
     const absolute = new URL(apiUrl, window.location.origin);
     absolute.protocol = absolute.protocol === 'https:' ? 'wss:' : 'ws:';

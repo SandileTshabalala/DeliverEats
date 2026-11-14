@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useShareDriverLocation } from '../../hooks/useLiveLocation';
 import OrderDetailsModal from '../../components/OrderDetailsModal';
 import type { OrderDetails } from '../../components/OrderDetailsModal';
 import { orderRef, fullName, phoneHref } from '../../services/orders';
@@ -25,6 +27,8 @@ const DriverDashboard = () => {
 
     const [statsData, setStatsData] = useState<any>(null);
     const [viewing, setViewing] = useState<OrderDetails | null>(null);
+    // Share GPS while online or on a delivery: nearest-driver matching and the customer's tracking use it
+    const sharing = useShareDriverLocation(profile?.id, !!profile && (profile.is_available || jobs.length > 0));
 
     useEffect(() => {
         fetchInitialData();
@@ -131,6 +135,14 @@ const DriverDashboard = () => {
                                         ? 'Waiting for the next delivery'
                                         : 'Go online to start receiving jobs')}
                             </p>
+                            {sharing !== 'off' && (
+                                <p className={sharing === 'sharing' ? "text-xs text-green-500 mt-1" : "text-xs text-yellow-500 mt-1"}>
+                                    {sharing === 'sharing' && 'Sharing your location with your customer while you work'}
+                                    {sharing === 'starting' && 'Finding your location...'}
+                                    {sharing === 'denied' && 'Location is blocked. Allow it in your browser so customers can follow their delivery.'}
+                                    {sharing === 'unsupported' && 'This device cannot share its location.'}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <button
@@ -185,7 +197,7 @@ const DriverDashboard = () => {
                         <Navigation size={20} className="text-brand-500" />
                         <span>Active Orders</span>
                     </h3>
-                    <button className="text-sm text-brand-500 hover:underline font-medium">View History</button>
+                    <Link to="/driver/jobs" className="text-sm text-brand-500 hover:underline font-medium">View history</Link>
                 </div>
 
                 {jobs.length === 0 ? (
@@ -193,7 +205,7 @@ const DriverDashboard = () => {
                         <div className="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Truck size={32} className="text-gray-600" />
                         </div>
-                        <p className="text-gray-400 font-medium tracking-tight">No active recovery jobs currently.</p>
+                        <p className="text-gray-400 font-medium tracking-tight">No deliveries right now.</p>
                         <p className="text-gray-600 text-sm mt-1">New jobs will appear here when you're online.</p>
                     </div>
                 ) : (

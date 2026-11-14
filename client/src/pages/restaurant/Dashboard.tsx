@@ -1,4 +1,9 @@
 import { useState, useEffect } from 'react';
+import { formatClock } from '../../utils/clock';
+import { Link } from 'react-router-dom';
+import type { RestaurantProfile, RestaurantReviews } from '../../services/platform';
+import { RatingBadge, Stars } from '../../components/Stars';
+import { timeAgo } from '../../services/site';
 import {
     ShoppingBag,
     TrendingUp,
@@ -6,9 +11,8 @@ import {
     Clock,
     ArrowUpRight,
     UtensilsCrossed,
-    CheckCircle2
 } from 'lucide-react';
-import { orderService, orderRef } from '../../services/orders';
+import { orderService, orderRef, fullName } from '../../services/orders';
 import { platform } from '../../services/platform';
 import type { RestaurantStats } from '../../services/platform';
 import { formatRand } from '../../context/CartContext';
@@ -96,7 +100,7 @@ const RestaurantDashboard = () => {
                             <Clock size={20} className="text-brand-500" />
                             <span>Recent Orders</span>
                         </h3>
-                        <button className="text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors uppercase tracking-widest">See all orders</button>
+                        <Link to="/restaurant/orders" className="text-xs font-bold text-brand-400 hover:text-brand-300 transition-colors uppercase tracking-widest">See all orders</Link>
                     </div>
 
                     {orders.length === 0 ? (
@@ -108,11 +112,10 @@ const RestaurantDashboard = () => {
                             {orders.slice(0, 5).map((order) => (
                                 <div key={order.id} className="p-4 bg-gray-900/40 hover:bg-gray-800/40 border border-gray-800 rounded-2xl flex items-center justify-between transition-all group">
                                     <div className="flex items-center space-x-4">
-                                        <div className="w-10 h-10 rounded-full bg-brand-500/10 flex items-center justify-center text-brand-500 font-bold text-sm">
-                                            {orderRef(order.id)}
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-white">Order from Customer</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-white truncate">
+                                                {fullName(order.customer) || 'Customer'} <span className="font-mono text-xs text-brand-500">{orderRef(order.id)}</span>
+                                            </p>
                                             <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{new Date(order.created_at).toLocaleTimeString()}</p>
                                         </div>
                                     </div>
@@ -139,26 +142,12 @@ const RestaurantDashboard = () => {
                     <div className="p-6 bg-gradient-to-br from-brand-600 to-brand-700 rounded-3xl shadow-xl shadow-brand-500/10">
                         <h4 className="text-lg font-bold text-white mb-2">Kitchen Health</h4>
                         <p className="text-brand-100/70 text-sm leading-relaxed mb-4">You have {pendingOrders.length} pending orders that need action.</p>
-                        <button className="w-full py-3 bg-white text-brand-600 font-black rounded-2xl text-sm transition-transform active:scale-95 shadow-lg uppercase tracking-wider">
+                        <Link to="/restaurant/orders" className="block text-center w-full py-3 bg-white text-brand-600 font-black rounded-2xl text-sm transition-transform active:scale-95 shadow-lg uppercase tracking-wider">
                             Manage Current Orders
-                        </button>
+                        </Link>
                     </div>
 
-                    <div className="p-6 bg-gray-900/40 border border-gray-800 rounded-3xl space-y-4">
-                        <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Platform Status</h4>
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-300">Visibility</span>
-                                <span className="flex items-center text-green-500 text-xs font-bold">
-                                    <CheckCircle2 size={12} className="mr-1" /> Public
-                                </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-gray-300">New Reviews</span>
-                                <span className="text-xs font-bold text-brand-400">+5 Today</span>
-                            </div>
-                        </div>
-                    </div>
+                    <KitchenCard />
                 </div>
             </div>
         </div>
@@ -166,3 +155,77 @@ const RestaurantDashboard = () => {
 };
 
 export default RestaurantDashboard;
+
+
+/** Open / close the kitchen and see what customers said. Staff can use the switch too. */
+const KitchenCard = () => {
+    const [profile, setProfile] = useState<RestaurantProfile | null>(null);
+    const [reviews, setReviews] = useState<RestaurantReviews | null>(null);
+    const [switching, setSwitching] = useState(false);
+
+    useEffect(() => {
+        platform.profile().then(setProfile).catch(() => undefined);
+        platform.restaurantReviews().then(setReviews).catch(() => undefined);
+    }, []);
+
+    const toggle = async () => {
+        if (!profile) return;
+        setSwitching(true);
+        try {
+            const updated = await platform.updateProfile({ accepting_orders: !profile.accepting_orders });
+            setProfile(updated);
+            toast.success(updated.accepting_orders ? 'Kitchen open: customers can order' : 'Kitchen closed: new orders are paused');
+        } catch {
+            toast.error('Could not change the kitchen status');
+        } finally {
+            setSwitching(false);
+        }
+    };
+
+    return (
+        <div className="p-6 bg-gray-900/40 border border-gray-800 rounded-3xl space-y-5">
+            <div className="space-y-3">
+                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Kitchen</h4>
+                {profile ? (
+                    <>
+                        <p className={profile.is_open ? "text-green-500 font-bold" : "text-red-400 font-bold"}>
+                            {profile.is_open
+                                ? 'Open: customers can order'
+                                : profile.accepting_orders && profile.opens_at
+                                    ? `Closed until ${formatClock(profile.opens_at)} (opening hours)`
+                                    : 'Closed: new orders are paused'}
+                        </p>
+                        <button
+                            onClick={toggle}
+                            disabled={switching}
+                            className={profile.accepting_orders
+                                ? "w-full py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-2xl text-sm disabled:opacity-60"
+                                : "w-full py-3 bg-green-500 hover:bg-green-600 text-black font-bold rounded-2xl text-sm disabled:opacity-60"}
+                        >
+                            {switching ? 'Saving...' : profile.accepting_orders ? 'Close the kitchen for now' : 'Open the kitchen'}
+                        </button>
+                    </>
+                ) : <p className="text-sm text-gray-500">Loading...</p>}
+            </div>
+
+            <div className="space-y-3 border-t border-gray-800 pt-5">
+                <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest">Reviews</h4>
+                    {reviews && <RatingBadge rating={reviews.rating} count={reviews.review_count} />}
+                </div>
+                {reviews && reviews.reviews.length === 0 && <p className="text-sm text-gray-500">No reviews yet. Customers can rate an order once it is delivered.</p>}
+                <ul className="space-y-3">
+                    {reviews?.reviews.slice(0, 5).map(review => (
+                        <li key={review.id} className="space-y-1">
+                            <div className="flex items-center justify-between">
+                                <Stars value={review.rating} size={14} />
+                                <span className="text-[11px] text-gray-500">{review.customer_name} · {timeAgo(review.created_at)}</span>
+                            </div>
+                            {review.comment && <p className="text-sm text-gray-300">{review.comment}</p>}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        </div>
+    );
+};
