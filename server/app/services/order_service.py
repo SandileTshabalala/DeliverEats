@@ -40,7 +40,7 @@ ALLOWED_TRANSITIONS = {
 ORDER_LOAD_OPTIONS = (
     joinedload(Order.customer),
     joinedload(Order.driver).joinedload(Driver.user),
-    joinedload(Order.restaurant),
+    joinedload(Order.restaurant).joinedload(Restaurant.admin),
     selectinload(Order.items),
     selectinload(Order.payments).joinedload(Payment.provider),
 )
@@ -393,11 +393,24 @@ def update_order_status(db: Session, order_id: str, new_status: OrderStatus, ord
     return order
 
 
-def get_restaurant_orders(db: Session, restaurant_id: str, limit: int = 20, offset: int = 0):
+FINISHED_STATUSES = (OrderStatus.DELIVERED, OrderStatus.CANCELLED)
+
+
+def get_restaurant_orders(db: Session, restaurant_id: str, limit: int = 20, offset: int = 0, view: str = None):
+    """
+    view: None = every order, newest first
+          "active"    = still being worked on (so a busy day never pushes them off the list)
+          "delivered" / "cancelled" = finished orders of that kind
+    """
+    query = db.query(Order).options(*ORDER_LOAD_OPTIONS).filter(Order.restaurant_id == restaurant_id)
+    if view == "active":
+        query = query.filter(Order.status.notin_(FINISHED_STATUSES))
+    elif view == "delivered":
+        query = query.filter(Order.status == OrderStatus.DELIVERED)
+    elif view == "cancelled":
+        query = query.filter(Order.status == OrderStatus.CANCELLED)
     return (
-        db.query(Order)
-        .options(*ORDER_LOAD_OPTIONS)
-        .filter(Order.restaurant_id == restaurant_id)
+        query
         .order_by(Order.created_at.desc())
         .offset(offset)
         .limit(limit)

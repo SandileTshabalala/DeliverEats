@@ -89,6 +89,7 @@ async def lifespan(app: FastAPI):
                     "opens_at VARCHAR(5)",
                     "closes_at VARCHAR(5)",
                     "vat_number VARCHAR(20)",
+                    "phone VARCHAR(20)",
                 ):
                     connection.execute(text(f"ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS {column}"))
                 for column in (

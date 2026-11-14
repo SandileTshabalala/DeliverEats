@@ -100,9 +100,22 @@ class RestaurantProfileUpdate(BaseModel):
     closes_at: Optional[str] = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     # South African VAT numbers are 10 digits starting with 4
     vat_number: Optional[str] = Field(default=None, pattern=r"^4\d{9}$")
+    # Number customers call to change or cancel an order; empty = the owner's number
+    phone: Optional[str] = Field(default=None, max_length=20)
 
     class Config:
         extra = "forbid"
+
+
+def _clean_phone(raw: Optional[str]) -> Optional[str]:
+    """Empty = use the owner's number. Otherwise digits (spaces, dashes and a leading + allowed)."""
+    import re
+    value = re.sub(r"[\s\-()]", "", raw or "")
+    if not value:
+        return None
+    if not re.fullmatch(r"\+?\d{9,15}", value):
+        raise HTTPException(status_code=400, detail="Enter a phone number customers can call, for example 072 123 4567")
+    return value
 
 
 def _profile(restaurant: Restaurant, db: Session) -> dict:
@@ -115,6 +128,8 @@ def _profile(restaurant: Restaurant, db: Session) -> dict:
         "accepting_orders": restaurant.accepting_orders is not False,
         "opens_at": restaurant.opens_at, "closes_at": restaurant.closes_at,
         "vat_number": restaurant.vat_number,
+        "phone": restaurant.phone,
+        "owner_phone": restaurant.admin.contact_number if restaurant.admin else None,
         "is_open": restaurant_info.is_open_now(restaurant),
         "category_ids": chosen,
         "category_options": options,
@@ -157,6 +172,8 @@ def update_profile(
     for required in ("name", "address"):
         if required in changes and not changes[required]:
             raise HTTPException(status_code=400, detail=f"The {required} cannot be empty")
+    if "phone" in changes:
+        changes["phone"] = _clean_phone(changes["phone"])
     for key, value in changes.items():
         setattr(restaurant, key, value)
     if bool(restaurant.opens_at) != bool(restaurant.closes_at):

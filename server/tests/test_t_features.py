@@ -194,14 +194,14 @@ def deliver_new_order():
 
 def test_customer_rates_a_delivered_order(client, login):
     customer = world["customer"]
-    # the earlier orders in this file were never delivered: cancel them so the driver is free
+    # the earlier orders in this file were never delivered: the restaurant cancels them so the driver is free
     for pending in customer.get("/orders/my").json():
         if pending["status"] == "pending":
-            customer.post(f"/orders/{pending['id']}/cancel")
+            world["owner"].post(f"/orders/{pending['id']}/status", params={"status": "cancelled"})
 
     undelivered = order_food().json()["id"]
     assert customer.post(f"/orders/{undelivered}/review", json={"rating": 5}).status_code == 409
-    customer.post(f"/orders/{undelivered}/cancel")
+    world["owner"].post(f"/orders/{undelivered}/status", params={"status": "cancelled"})
 
     first, second = deliver_new_order(), deliver_new_order()
     assert customer.post(f"/orders/{first}/review", json={"rating": 6}).status_code == 422

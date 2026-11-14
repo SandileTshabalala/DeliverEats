@@ -1,5 +1,6 @@
 import api from "./api";
 
+import { serverDate } from '../utils/orderDisplay';
 export interface Plan {
     id: string;
     name: string;
@@ -137,7 +138,7 @@ export const intervalLabel = (months: number) =>
     months === 1 ? 'month' : months === 12 ? 'year' : `${months} months`;
 
 export const formatDate = (iso: string | null) =>
-    iso ? new Date(iso.endsWith('Z') ? iso : `${iso}Z`).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+    iso ? serverDate(iso).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
 
 /** Readable message from an API error. */
 export const errorMessage = (error: any, fallback: string) => {

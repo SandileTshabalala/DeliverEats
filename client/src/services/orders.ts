@@ -20,6 +20,8 @@ export interface Order {
     delivery_address?: string | null;
     payment_status?: string;
     payment_method?: string | null;
+    /** paid online but cancelled (or paid twice): the restaurant must refund it */
+    refund_due?: boolean;
     customer?: OrderPerson;
     driver?: (OrderPerson & { vehicle_type?: string; vehicle_number?: string | null }) | null;
 }
@@ -41,6 +43,14 @@ export const fullName = (person?: OrderPerson | null) =>
     person ? [person.name, person.sur_name].filter(Boolean).join(' ') : '';
 
 /** tel: link target, keeping only what a dialler understands */
+/** "0721234567" -> "072 123 4567", "+27721234567" -> "+27 72 123 4567" (anything else unchanged) */
+export const formatPhone = (number?: string | null) => {
+    const digits = (number ?? '').replace(/[^\d+]/g, '');
+    if (/^0\d{9}$/.test(digits)) return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+    if (/^\+27\d{9}$/.test(digits)) return `+27 ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8)}`;
+    return number ?? '';
+};
+
 export const phoneHref = (number?: string | null) => `tel:${(number ?? '').replace(/[^\d+]/g, '')}`;
 
 export const orderService = {
@@ -61,13 +71,15 @@ export const orderService = {
         return res.data;
     },
 
-    getRestaurantOrders: async (): Promise<Order[]> => {
-        const res = await api.get("/restaurant/orders");
+    /** view: "active" = still being worked on; "delivered" / "cancelled" = finished orders */
+    getRestaurantOrders: async (view?: 'active' | 'delivered' | 'cancelled', limit = 50): Promise<Order[]> => {
+        const res = await api.get("/restaurant/orders", { params: { ...(view ? { view } : {}), limit } });
         return res.data;
     },
 
     getMyOrders: async (): Promise<Order[]> => {
-        const res = await api.get("/orders/my");
+        // The order list filters (Delivered, Cancelled...) work on what is loaded: load up to the server's maximum
+        const res = await api.get("/orders/my", { params: { limit: 100 } });
         return res.data;
     }
 };

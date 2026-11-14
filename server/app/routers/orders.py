@@ -153,32 +153,9 @@ def change_status(
     return {"order_id": order.id, "status": order.status}
 
 
-# ----------------------------
-# CUSTOMER: CANCEL OWN ORDER
-# ----------------------------
-@router.post("/{order_id}/cancel", response_model=OrderRead)
-def cancel_my_order(
-    order_id: str,
-    db: Session = Depends(get_db),
-    user=Depends(require_role(Role.CUSTOMER))
-):
-    """A customer may cancel only while the restaurant has not accepted yet."""
-    order = get_order(db, order_id)
-    if not order or order.customer_id != user.id:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if order.status != OrderStatus.PENDING:
-        raise HTTPException(status_code=409, detail="The restaurant has already started on this order")
-    if order.payment_status == "completed":
-        raise HTTPException(
-            status_code=409,
-            detail="This order is already paid. Please contact the restaurant to cancel and refund it."
-        )
-    update_order_status(db, order_id, OrderStatus.CANCELLED, order=order)
-    db.expire_all()
-    order = get_order(db, order_id)
-    broadcast_order(order)
-    return order
-
+# Customers do not cancel online: they call the restaurant (its number is on
+# their order), and the restaurant cancels. Unpaid online orders cancel
+# themselves (cancel_stale_orders).
 
 # ----------------------------
 # CUSTOMER: RATE A DELIVERED ORDER

@@ -194,3 +194,42 @@ def test_cors_wraps_the_rate_limiter():
     order = [m.cls for m in app.user_middleware]                         # first = runs first
     assert order[0] is CORSMiddleware
     assert order.index(CORSMiddleware) < order.index(RateLimitMiddleware)
+
+
+def test_restaurant_order_tabs_and_refund_flag(db, messages):
+    paid = place()
+    payment = attempt(db, paid)
+    payment_service.mark_payment_completed(db, payment, reference="pf-tab")
+    open_order = place()
+    assert cancel_as_restaurant(paid).status_code == 200
+
+    owner = world["owner"]
+    cancelled = {o["id"]: o for o in owner.get("/restaurant/orders", params={"view": "cancelled"}).json()}
+    active = {o["id"] for o in owner.get("/restaurant/orders", params={"view": "active"}).json()}
+    assert cancelled[paid]["refund_due"] is True
+    assert paid not in active and open_order in active
+    assert open_order not in cancelled
+    assert owner.get("/restaurant/orders", params={"view": "nonsense"}).status_code == 422
+
+
+# ---------------------------------------------------------------- customers call, restaurants cancel
+def test_customers_cannot_cancel_online_any_more():
+    order_id = place()
+    response = world["customer"].post(f"/orders/{order_id}/cancel")
+    assert response.status_code in (404, 405)
+
+
+def test_customers_see_the_restaurant_number_on_their_orders():
+    owner, customer = world["owner"], world["customer"]
+    order_id = place()
+
+    def number():
+        mine = next(o for o in customer.get("/orders/my").json() if o["id"] == order_id)
+        return mine["restaurant"]["contact_phone"]
+
+    assert number() == "0892220001"                                     # no shop number yet: the owner's
+    assert owner.patch("/manage/restaurant", json={"phone": "013 755 1234"}).json()["phone"] == "0137551234"
+    assert number() == "0137551234"
+    assert owner.patch("/manage/restaurant", json={"phone": "call me"}).status_code == 400
+    assert owner.patch("/manage/restaurant", json={"phone": ""}).json()["phone"] is None
+    assert number() == "0892220001"

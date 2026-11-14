@@ -48,8 +48,9 @@ const Terms = () => (
 
                     <Section title="5. Cancelling and refunds">
                         <ul className="list-disc pl-6 space-y-2">
-                            <li>You can cancel in the app until the restaurant accepts your order.</li>
-                            <li>After that, contact the restaurant. Because the restaurant received your money, refunds are handled by the restaurant.</li>
+                            <li>To change or cancel an order, call the restaurant. Its number is shown on your order. Only the restaurant can cancel an order.</li>
+                            <li>An online payment that is not completed is cancelled automatically, and you are not charged.</li>
+                            <li>If a paid order is cancelled, the restaurant refunds you, because the restaurant received your money. You are told when a refund is due.</li>
                             <li>Your rights under the Consumer Protection Act, 2008 are not affected by these terms.</li>
                         </ul>
                     </Section>

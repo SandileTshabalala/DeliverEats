@@ -4,6 +4,7 @@ import { formatRand } from '../context/CartContext';
 import { orderRef, fullName, phoneHref } from '../services/orders';
 import type { OrderPerson } from '../services/orders';
 
+import { serverDate } from '../utils/orderDisplay';
 export interface OrderDetails {
     id: string;
     status: string;
@@ -81,7 +82,7 @@ const OrderDetailsModal = ({ order, onClose, actions }: Props) => {
                     <div>
                         <h3 className="text-xl font-bold text-white">Order {orderRef(order.id)}</h3>
                         <p className="text-xs text-gray-500">
-                            {new Date(order.created_at).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}
+                            {serverDate(order.created_at).toLocaleString('en-ZA', { dateStyle: 'medium', timeStyle: 'short' })}
                             <span className="mx-2">·</span>
                             <span className="uppercase font-bold text-brand-500">{order.status.replace(/_/g, ' ')}</span>
                         </p>

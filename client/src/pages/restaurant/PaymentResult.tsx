@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import PaymentOutcome, { type Outcome } from '../../components/PaymentOutcome';
 import { formatDate, manage, type BillingOverview, type SubscriptionPayment } from '../../services/billing';
 
+import { serverDate } from '../../utils/orderDisplay';
 // Back from paying the plan on PayFast. PayFast confirms to our server
 // separately, so the latest payment is checked a few times.
 const CHECK_AT_MS = [0, 3000, 7000, 12000, 20000, 35000];
@@ -24,7 +25,7 @@ const SubscriptionPaymentResult = () => {
                 const [overview, history] = await Promise.all([manage.billing(), manage.billingHistory()]);
                 if (stopped) return;
                 setBilling(overview);
-                const recent = history.find(p => p.status === 'completed' && Date.now() - new Date(p.created_at + (p.created_at.endsWith('Z') ? '' : 'Z')).getTime() < RECENT_MS);
+                const recent = history.find(p => p.status === 'completed' && Date.now() - serverDate(p.created_at).getTime() < RECENT_MS);
                 if (recent && !cancelled) {
                     stopped = true;
                     timers.forEach(clearTimeout);

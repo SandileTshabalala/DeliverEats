@@ -162,9 +162,9 @@ const RestaurantMenus = () => {
                                     </div>
                                 </div>
                                 <div className="p-6 relative">
-                                    <div className="flex justify-between items-start mb-2">
+                                    <div className="flex justify-between items-start gap-3 mb-2">
                                         <h3 className="font-bold text-lg text-white group-hover:text-brand-400 transition-colors uppercase tracking-tighter leading-tight">{item.name}</h3>
-                                        <p className="font-black text-xl text-white">R {item.price}</p>
+                                        <p className="font-black text-xl text-white whitespace-nowrap shrink-0">R {item.price}</p>
                                     </div>
                                     <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed h-8 mb-6">{item.description || 'No description provided for this item.'}</p>
                                     <div className="flex items-center justify-between pt-4 border-t border-gray-800/50">

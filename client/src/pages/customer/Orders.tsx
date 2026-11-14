@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCart } from '../../context/CartContext';
-import { RotateCcw } from 'lucide-react';
+import { Phone, RotateCcw } from 'lucide-react';
 import { InvoiceButton } from '../../components/ReportControls';
 import { formatRand } from '../../context/CartContext';
 import OrderProgress from '../../components/OrderProgress';
@@ -19,9 +19,10 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../services/api';
 import { toast } from 'react-hot-toast';
 import { useOrderWebSocket } from '../../hooks/useOrderWebSocket';
-import { orderRef, fullName, phoneHref } from '../../services/orders';
+import { orderRef, fullName, phoneHref, formatPhone } from '../../services/orders';
 import type { OrderPerson } from '../../services/orders';
 
+import { itemCount, when } from '../../utils/orderDisplay';
 interface OrderItem {
     id: string;
     menu_item_id: string;
@@ -46,12 +47,16 @@ interface Order {
     delivery_lat?: number | null;
     delivery_lng?: number | null;
     my_rating?: number | null;
-    // restaurant: { name: string }; // Assuming backend expands restaurant relation
+    /** paid online, then cancelled: the restaurant has been asked to refund it */
+    refund_due?: boolean;
+    restaurant?: { id: string; name: string; contact_phone?: string | null } | null;
 }
 
 const Orders = () => {
     const [activeFilter, setActiveFilter] = useState('All');
     const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+    // Orders whose restaurant number is showing (the button shows it, it does not dial)
+    const [phoneShown, setPhoneShown] = useState<string | null>(null);
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -101,23 +106,6 @@ const Orders = () => {
         setSearchParams({}, { replace: true });
     }, [searchParams, setSearchParams, fetchOrders]);
 
-    // Allowed only until the restaurant accepts, and not once it is paid online
-    const [cancelling, setCancelling] = useState<string | null>(null);
-    const cancelOrder = async (order: Order) => {
-        if (!window.confirm(`Cancel your order ${orderRef(order.id)} from ${order.restaurant_name || 'the restaurant'}?`)) return;
-        setCancelling(order.id);
-        try {
-            await api.post(`/orders/${order.id}/cancel`);
-            toast.success('Order cancelled');
-            fetchOrders();
-        } catch (error: any) {
-            const detail = error.response?.data?.detail;
-            toast.error(typeof detail === 'string' ? detail : 'Could not cancel the order');
-        } finally {
-            setCancelling(null);
-        }
-    };
-
     // Put the same dishes back in the cart. The server re-prices them at checkout
     // and says if something is no longer on the menu.
     const { addToCart, updateQuantity } = useCart();
@@ -135,7 +123,10 @@ const Orders = () => {
     };
 
     const paymentBadge = (order: Order) => {
-        if (order.status === 'cancelled') return null;
+        if (order.status === 'cancelled') {
+            // Paid online, then cancelled: the restaurant has been asked to refund it
+            return order.refund_due ? { label: 'Refund due', style: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' } : null;
+        }
         switch (order.payment_status) {
             case 'completed': return { label: 'Paid', style: 'bg-green-500/10 text-green-500 border-green-500/20' };
             case 'pay_on_delivery': return { label: 'Pay on delivery', style: 'bg-gray-500/10 text-gray-400 border-gray-500/20' };
@@ -249,16 +240,16 @@ const Orders = () => {
                                 className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer"
                                 onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
                             >
-                                <div className="flex items-center space-x-6">
+                                <div className="flex items-start sm:items-center gap-4 sm:gap-6 min-w-0">
                                     <div className={clsx(
-                                        "w-16 h-16 rounded-2xl flex items-center justify-center border transition-colors group-hover:scale-110",
+                                        "w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-2xl flex items-center justify-center border transition-colors group-hover:scale-110",
                                         getStatusStyles(order.status)
                                     )}>
                                         <ShoppingBag size={28} />
                                     </div>
-                                    <div className="space-y-1">
-                                        <div className="flex items-center space-x-3">
-                                            <h3 className="text-xl font-black uppercase tracking-tight italic group-hover:text-brand-500 transition-colors">
+                                    <div className="space-y-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                                            <h3 className="w-full sm:w-auto text-xl font-black uppercase tracking-tight italic group-hover:text-brand-500 transition-colors">
                                                 {order.restaurant_name || 'Order'} <span className="text-gray-500">{orderRef(order.id)}</span>
                                             </h3>
                                             <span className={clsx(
@@ -278,18 +269,35 @@ const Orders = () => {
                                             )}
                                         </div>
                                         <div className="flex items-center space-x-4 text-gray-500 text-sm font-bold">
-                                            <span>{order.items.length} Items</span>
-                                            <span className="w-1 h-1 rounded-full bg-gray-800 font-normal">•</span>
-                                            <span className="font-normal">{new Date(order.created_at || Date.now()).toLocaleDateString()}</span>
+                                            <span>{itemCount(order.items.length)}</span>
+                                            <span aria-hidden="true" className="w-1 h-1 rounded-full bg-gray-600" />
+                                            <span className="font-normal">{when(order.created_at)}</span>
                                         </div>
-                                        {order.status === 'pending' && order.payment_status !== 'completed' && (
-                                            <button
-                                                onClick={event => { event.stopPropagation(); cancelOrder(order); }}
-                                                disabled={cancelling === order.id}
-                                                className="text-sm font-bold text-red-500 hover:text-red-400 disabled:opacity-60"
-                                            >
-                                                {cancelling === order.id ? 'Cancelling...' : 'Cancel order'}
-                                            </button>
+                                        {/* Changes and cancellations go through the restaurant, by phone,
+                                            once the kitchen has the order (not while an online payment is still open) */}
+                                        {!['delivered', 'cancelled', 'picked_up'].includes(order.status)
+                                            && !['pending', 'failed', 'unpaid'].includes(order.payment_status ?? '')
+                                            && order.restaurant?.contact_phone && (
+                                            <p className="text-sm text-gray-400">
+                                                Need to change or cancel?{' '}
+                                                {phoneShown === order.id ? (
+                                                    <span onClick={event => event.stopPropagation()}
+                                                        className="inline-flex items-center gap-1 text-white font-bold select-all cursor-text">
+                                                        <Phone size={13} className="text-brand-500" /> {formatPhone(order.restaurant.contact_phone)}
+                                                    </span>
+                                                ) : (
+                                                    <button type="button" onClick={event => { event.stopPropagation(); setPhoneShown(order.id); }}
+                                                        className="inline-flex items-center gap-1 text-brand-500 font-bold hover:text-brand-400">
+                                                        <Phone size={13} /> Call {order.restaurant_name || 'the restaurant'}
+                                                    </button>
+                                                )}
+                                            </p>
+                                        )}
+                                        {order.status === 'cancelled' && order.refund_due && (
+                                            <p className="text-sm text-gray-400">
+                                                You paid for this order online. {order.restaurant_name || 'The restaurant'} has been asked to refund you.
+                                                Contact them if the money is not back within 7 days.
+                                            </p>
                                         )}
                                         {order.driver && !['delivered', 'cancelled'].includes(order.status) && (
                                             <p className="text-sm text-gray-400">

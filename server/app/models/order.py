@@ -80,6 +80,11 @@ class Order(Base):
         return min(done, key=lambda p: p.created_at or datetime.min) if done else None
 
     @property
+    def refund_due(self) -> bool:
+        """A payment of this order is flagged for a refund (cancelled after paying, or paid twice)."""
+        return any((p.provider_metadata or {}).get("needs_refund") for p in (self.payments or []))
+
+    @property
     def payment_status(self):
         """unpaid | pay_on_delivery | pending | completed | failed"""
         from app.utils.PaymentStatus import is_offline_provider

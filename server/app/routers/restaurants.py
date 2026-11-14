@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from typing import Literal, Optional
 from sqlalchemy.orm import Session
 from app.schemas.restaurant import RestaurantCreate, RestaurantResponse
 from app.services.restaurant_service import create_restaurant, get_restaurants, get_restaurant
@@ -29,10 +30,11 @@ def my_restaurant(restaurant: Restaurant = Depends(get_current_restaurant)):
 def restaurant_orders(
     limit: int = 20,
     offset: int = 0,
+    view: Optional[Literal["active", "delivered", "cancelled"]] = None,
     db: Session = Depends(get_db),
     restaurant: Restaurant = Depends(get_current_restaurant)
 ):
-    return get_restaurant_orders(db, restaurant.id, limit=max(1, min(limit, 100)), offset=max(0, offset))
+    return get_restaurant_orders(db, restaurant.id, limit=max(1, min(limit, 100)), offset=max(0, offset), view=view)
 
 
 @router.get("/{restaurant_id}", response_model=RestaurantResponse)

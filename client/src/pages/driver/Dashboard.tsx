@@ -11,7 +11,8 @@ import {
     Power,
     MapPin,
     Navigation,
-    TrendingUp
+    TrendingUp,
+    Package
 } from 'lucide-react';
 import { driverService } from '../../services/drivers';
 import type { DriverProfile } from '../../services/drivers';
@@ -19,6 +20,7 @@ import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 
+import { orderStatus } from '../../utils/orderDisplay';
 const DriverDashboard = () => {
     const [profile, setProfile] = useState<DriverProfile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -213,8 +215,8 @@ const DriverDashboard = () => {
                         {jobs.map((job) => (
                             <div key={job.id} className="p-6 bg-gray-900/40 border border-gray-800 rounded-3xl flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center space-x-4">
-                                    <div className="w-12 h-12 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-500 font-bold">
-                                        {orderRef(job.id).slice(0, 5)}
+                                    <div className="w-12 h-12 shrink-0 bg-brand-500/10 rounded-2xl flex items-center justify-center text-brand-500">
+                                        <Package size={22} />
                                     </div>
                                     <div>
                                         <p className="font-bold text-white">{job.restaurant_name || 'Restaurant'} <span className="text-xs text-gray-600 font-mono">{orderRef(job.id)}</span></p>
@@ -232,7 +234,7 @@ const DriverDashboard = () => {
                                             <MapPin size={12} />
                                             <span>{job.delivery_address || 'No delivery address'}</span>
                                             <span>•</span>
-                                            <span className="uppercase text-brand-500 font-bold">{job.status.replace('_', ' ')}</span>
+                                            <span className="uppercase text-brand-500 font-bold">{orderStatus(job.status).label}</span>
                                         </div>
                                     </div>
                                 </div>

@@ -115,6 +115,7 @@ const Settings = () => {
                 category_ids: profile.category_ids,
                 opens_at: profile.opens_at || null, closes_at: profile.closes_at || null,
                 vat_number: profile.vat_number || null,
+                phone: profile.phone || '',
             }));
             toast.success('Restaurant details saved');
         } catch (error) {
@@ -312,6 +313,16 @@ const Settings = () => {
                                 })}
                             </div>
                             <p className="text-xs text-gray-600 mt-1.5">Customers find you under each one. The first you pick shows on your card. Missing a type? Ask the platform team to add it.</p>
+                        </div>
+                        <div>
+                            <label className={label} htmlFor="shop-phone">Phone number for customers</label>
+                            <input id="shop-phone" type="tel" inputMode="tel" maxLength={20} className={input}
+                                placeholder={profile.owner_phone || '072 123 4567'}
+                                value={profile.phone ?? ''} onChange={e => setProfile({ ...profile, phone: e.target.value })} />
+                            <p className="text-xs text-gray-600 mt-1">
+                                Customers see this on their order and call it to change or cancel.
+                                {profile.owner_phone && !profile.phone ? ` Leave it empty to use your own number (${profile.owner_phone}).` : ''}
+                            </p>
                         </div>
                         <div>
                             <label className={label} htmlFor="shop-vat">VAT number (only if VAT registered)</label>

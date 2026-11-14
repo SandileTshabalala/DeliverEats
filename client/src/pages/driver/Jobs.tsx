@@ -16,6 +16,7 @@ import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { orderStatus, when } from '../../utils/orderDisplay';
 const Jobs = () => {
     const [jobs, setJobs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -141,7 +142,7 @@ const Jobs = () => {
                                                 )}
                                                 <div className="flex items-center text-xs text-gray-500 space-x-1">
                                                     <Calendar size={12} className="text-brand-500/50" />
-                                                    <span>{new Date(job.created_at).toLocaleDateString()}</span>
+                                                    <span>{when(job.created_at)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -150,7 +151,7 @@ const Jobs = () => {
                                     <div className="flex items-center justify-between md:justify-end gap-4">
                                         <div className="text-right hidden sm:block">
                                             <p className="text-lg font-bold text-white">{formatRand(job.total || 0)}</p>
-                                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{job.status}</p>
+                                            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">{orderStatus(job.status).label}</p>
                                         </div>
                                         <button aria-label={`View order ${orderRef(job.id)}`} onClick={() => setViewing(job)} className="p-2 text-gray-500 group-hover:text-brand-500 bg-gray-800/50 rounded-xl transition-colors">
                                             <ChevronRight size={24} />

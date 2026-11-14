@@ -20,6 +20,7 @@ import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 
+import { orderStatus, when } from '../../utils/orderDisplay';
 const RestaurantDashboard = () => {
     const [orders, setOrders] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -116,17 +117,17 @@ const RestaurantDashboard = () => {
                                             <p className="text-sm font-bold text-white truncate">
                                                 {fullName(order.customer) || 'Customer'} <span className="font-mono text-xs text-brand-500">{orderRef(order.id)}</span>
                                             </p>
-                                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{new Date(order.created_at).toLocaleTimeString()}</p>
+                                            <p className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{when(order.created_at)}</p>
                                         </div>
                                     </div>
                                     <div className="flex items-center space-x-6">
                                         <div className="text-right">
-                                            <p className="text-sm font-bold text-white">R {order.total}</p>
+                                            <p className="text-sm font-bold text-white whitespace-nowrap">{formatRand(order.total || 0)}</p>
                                             <span className={clsx(
-                                                "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full",
-                                                order.status === 'pending' ? "bg-amber-500/10 text-amber-500" : "bg-green-500/10 text-green-500"
+                                                "text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border",
+                                                orderStatus(order.status).style
                                             )}>
-                                                {order.status}
+                                                {orderStatus(order.status).label}
                                             </span>
                                         </div>
                                         <ArrowUpRight size={18} className="text-gray-600 group-hover:text-white transition-colors" />

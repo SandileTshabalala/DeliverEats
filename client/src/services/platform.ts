@@ -78,6 +78,9 @@ export interface RestaurantProfile {
     category_options: { id: string; name: string; image_url: string | null }[];
     max_categories: number;
     vat_number: string | null;
+    /** customers call this to change or cancel an order; null = the owner's number */
+    phone: string | null;
+    owner_phone: string | null;
 }
 
 export interface RestaurantReviews {
@@ -121,7 +124,7 @@ export const platform = {
 
     // a restaurant's own profile
     profile: async (): Promise<RestaurantProfile> => (await api.get("/manage/restaurant")).data,
-    updateProfile: async (data: Partial<Pick<RestaurantProfile, 'name' | 'address' | 'description' | 'category_ids' | 'accepting_orders' | 'opens_at' | 'closes_at' | 'vat_number'>>): Promise<RestaurantProfile> =>
+    updateProfile: async (data: Partial<Pick<RestaurantProfile, 'name' | 'address' | 'description' | 'category_ids' | 'accepting_orders' | 'opens_at' | 'closes_at' | 'vat_number' | 'phone'>>): Promise<RestaurantProfile> =>
         (await api.patch("/manage/restaurant", data)).data,
     uploadLogo: async (image: Blob): Promise<RestaurantProfile> => {
         const form = new FormData();

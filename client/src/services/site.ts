@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import api from './api';
 
+import { serverDate } from '../utils/orderDisplay';
 export interface SiteInfo {
     app_name: string;
     business_name: string | null;
@@ -48,10 +49,10 @@ export const inbox = {
 
 /** "5 min ago", "yesterday", "3 Nov" */
 export const timeAgo = (iso: string) => {
-    const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+    const seconds = Math.max(0, (Date.now() - serverDate(iso).getTime()) / 1000);
     if (seconds < 60) return 'just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ago`;
     if (seconds < 172800) return 'yesterday';
-    return new Date(iso).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+    return serverDate(iso).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
 };

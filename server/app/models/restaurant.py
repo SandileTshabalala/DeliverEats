@@ -23,6 +23,13 @@ class Restaurant(Base):
     closes_at = Column(String(5), nullable=True)
     # When the restaurant is VAT registered: its order invoices become tax invoices
     vat_number = Column(String(20), nullable=True)
+    # Customers call this to change or cancel an order (empty = the owner's number)
+    phone = Column(String(20), nullable=True)
+
+    @property
+    def contact_phone(self):
+        """Number customers call about an order: the restaurant's own, else the owner's."""
+        return self.phone or (self.admin.contact_number if self.admin else None)
 
     @property
     def is_open(self):

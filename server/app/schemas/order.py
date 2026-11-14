@@ -56,6 +56,8 @@ class OrderRestaurant(BaseModel):
     name: str
     address: str
     logo_img_url: Optional[str] = None
+    # To call about the order: changes and cancellations go through the restaurant
+    contact_phone: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -81,6 +83,8 @@ class OrderRead(BaseModel):
     delivery_address: Optional[str] = None
     payment_status: str = "unpaid"
     payment_method: Optional[str] = None
+    # Paid online but cancelled (or paid twice): the restaurant must refund the customer
+    refund_due: bool = False
     # The customer's own 1-5 rating of this order, once given
     my_rating: Optional[int] = None
 
