@@ -7,3 +7,6 @@ dist/
 .gitignore
 .dockerignore
 Dockerfile*
+
+# pnpm download cache
+.pnpm-store

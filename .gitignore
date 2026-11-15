@@ -9,3 +9,6 @@ server/.env.prod
 client/.env.dev
 client/.env.prod
 server/uploads/
+
+# pnpm download cache (never part of the project)
+.pnpm-store/

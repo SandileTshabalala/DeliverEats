@@ -38,6 +38,9 @@ services:
       - ./client/.env.dev
     environment:
       VITE_USE_POLLING: "true"
+      # pnpm's download cache stays inside the container. Without this, an install
+      # run in the container put a 213 MB .pnpm-store into client/ (and OneDrive).
+      npm_config_store_dir: /root/.local/share/pnpm/store
     volumes:
       - ./client:/app
       - client_node_modules:/app/node_modules
