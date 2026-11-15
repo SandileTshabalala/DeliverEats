@@ -6,6 +6,7 @@ Also receives PayFast's notifications for subscription charges.
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -62,6 +63,22 @@ def admin_delete_plan(plan_id: str, db: Session = Depends(get_db), admin=Depends
 
 
 # ---------------- subscriptions ----------------
+class EnforcementUpdate(BaseModel):
+    enforced: bool
+
+
+@router.get("/admin/billing/enforcement")
+def admin_get_enforcement(db: Session = Depends(get_db), admin=Depends(admin_only)) -> dict:
+    """Is the subscription switch on, and who would be hidden if it were?"""
+    return {"enforced": subs.enforced(db), "grace_days": settings.SUBSCRIPTION_GRACE_DAYS, "would_close": subs.would_close(db)}
+
+
+@router.put("/admin/billing/enforcement")
+def admin_set_enforcement(payload: EnforcementUpdate, db: Session = Depends(get_db), admin=Depends(admin_only)) -> dict:
+    subs.set_enforced(db, payload.enforced)
+    return admin_get_enforcement(db, admin)
+
+
 @router.get("/admin/billing/subscriptions", response_model=List[SubscriptionRead])
 def admin_list_subscriptions(db: Session = Depends(get_db), admin=Depends(admin_only)):
     """Every restaurant with its plan and payment state, including ones with no plan yet."""

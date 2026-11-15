@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from fastapi import HTTPException
 from sqlalchemy import update
-from sqlalchemy.orm import Session, joinedload, object_session, selectinload
+from sqlalchemy.orm import Session, joinedload, object_session
 
 from app.core.config import settings
 from app.models.driver import Driver
@@ -15,6 +15,7 @@ from app.models.payment import Payment
 from app.models.restaurant import Restaurant
 from app.models.user_address import UserAddress
 from app.services import delivery_fee as delivery_fee_service
+from app.services import menu_options
 from app.services import restaurant_info
 from app.services.delivery_service import assign_nearest_driver
 from app.services.driver_service import get_available_driver, on_driver_available
@@ -41,12 +42,15 @@ ORDER_LOAD_OPTIONS = (
     joinedload(Order.customer),
     joinedload(Order.driver).joinedload(Driver.user),
     joinedload(Order.restaurant).joinedload(Restaurant.admin),
-    selectinload(Order.items),
-    selectinload(Order.payments).joinedload(Payment.provider),
+    # Joined, not "selectin": everything in ONE query. Each extra query is a
+    # trip to the database (300-500 ms while it is far away); an order has only
+    # a few items and payments, so the joined rows stay small.
+    joinedload(Order.items),
+    joinedload(Order.payments).joinedload(Payment.provider),
 )
 
 # The customer's own orders also carry their rating
-CUSTOMER_ORDER_OPTIONS = (*ORDER_LOAD_OPTIONS, selectinload(Order.review))
+CUSTOMER_ORDER_OPTIONS = (*ORDER_LOAD_OPTIONS, joinedload(Order.review))
 
 
 def _status_value(status) -> str:
@@ -62,7 +66,10 @@ def notify_restaurant_of_new_order(order: Order) -> None:
     """A paid (or pay-on-delivery) order is waiting: tell the owner by SMS and email."""
     if not order.restaurant or not order.restaurant.admin_id:
         return
-    items = ", ".join(f"{item.quantity} x {item.name}" for item in order.items)
+    items = ", ".join(
+        f"{item.quantity} x {item.name}" + (f" ({menu_options.describe(item.options)})" if item.options else "")
+        for item in order.items
+    )
     send_notification(
         order.restaurant.admin_id, "New order",
         f"#{short_id(order)} R {order.total_amount:.2f}: {items}",
@@ -146,20 +153,22 @@ def price_order(db: Session, customer_id: str, restaurant_id: str, items: list, 
             "delivery_address": addr.formatted_address,
         }
 
-    # Merge duplicate lines, then load only items that are on THIS restaurant's menu
+    # Merge duplicate lines (same dish AND same choices), then load only items
+    # that are on THIS restaurant's menu
     quantities = {}
     for item in items:
-        quantities[item.menu_item_id] = quantities.get(item.menu_item_id, 0) + item.quantity
+        key = (item.menu_item_id, tuple(sorted(set(getattr(item, "options", None) or []))))
+        quantities[key] = quantities.get(key, 0) + item.quantity
 
     menu_items = {
         mi.id: mi
         for mi in db.query(MenuItem)
         .join(Menu, MenuItem.menu_id == Menu.id)
-        .filter(MenuItem.id.in_(list(quantities)), Menu.restaurant_id == restaurant_id)
+        .filter(MenuItem.id.in_({item_id for item_id, _ in quantities}), Menu.restaurant_id == restaurant_id)
         .all()
     }
 
-    missing = [item_id for item_id in quantities if item_id not in menu_items]
+    missing = [item_id for item_id, _ in quantities if item_id not in menu_items]
     if missing:
         raise HTTPException(
             status_code=400,
@@ -169,7 +178,12 @@ def price_order(db: Session, customer_id: str, restaurant_id: str, items: list, 
     if unavailable:
         raise HTTPException(status_code=400, detail=f"Currently unavailable: {', '.join(unavailable)}")
 
-    subtotal = sum((mi.price * quantities[mi.id] for mi in menu_items.values()), Decimal("0")).quantize(Decimal("0.01"))
+    # Each line priced from the menu, extras included (menu_options checks every pick)
+    lines = []
+    for (item_id, choice_ids), quantity in quantities.items():
+        unit_price, picked = menu_options.choose(menu_items[item_id], list(choice_ids))
+        lines.append({"menu_item": menu_items[item_id], "quantity": quantity, "unit_price": unit_price, "options": picked})
+    subtotal = sum((line["unit_price"] * line["quantity"] for line in lines), Decimal("0")).quantize(Decimal("0.01"))
     delivery = delivery_fee_service.quote(
         db, restaurant_id, subtotal,
         address_snapshot.get("delivery_lat"), address_snapshot.get("delivery_lng"),
@@ -178,8 +192,7 @@ def price_order(db: Session, customer_id: str, restaurant_id: str, items: list, 
 
     return {
         "restaurant": restaurant,
-        "menu_items": menu_items,
-        "quantities": quantities,
+        "lines": lines,
         "address_snapshot": address_snapshot,
         "subtotal": subtotal,
         "delivery_fee": delivery_fee,
@@ -193,7 +206,6 @@ def price_order(db: Session, customer_id: str, restaurant_id: str, items: list, 
 def create_order(db: Session, customer_id: str, restaurant_id: str, items: list, address_id: str = None):
     """Create an order for `customer_id`, priced by `price_order`."""
     priced = price_order(db, customer_id, restaurant_id, items, address_id)
-    menu_items, quantities = priced["menu_items"], priced["quantities"]
     address_snapshot, total, delivery_fee = priced["address_snapshot"], priced["total"], priced["delivery_fee"]
 
     order = Order(
@@ -207,14 +219,16 @@ def create_order(db: Session, customer_id: str, restaurant_id: str, items: list,
     db.add(order)
     db.flush()
 
-    for menu_item in menu_items.values():
+    for line in priced["lines"]:
+        menu_item = line["menu_item"]
         db.add(OrderItem(
             order_id=order.id,
             menu_item_id=menu_item.id,
             name=menu_item.name,
             description=menu_item.description,
-            quantity=quantities[menu_item.id],
-            price=menu_item.price,  # price snapshot at the time of ordering
+            quantity=line["quantity"],
+            price=line["unit_price"],        # price snapshot at the time of ordering, extras included
+            options=line["options"] or None,  # what was picked, as it was then
         ))
 
     db.commit()

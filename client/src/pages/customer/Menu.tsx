@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatClock } from '../../utils/clock';
 import { Link, useParams } from 'react-router-dom';
-import { Bike, ChevronLeft, Clock, Image as ImageIcon, MapPin, Minus, Plus, Search, Utensils, X } from 'lucide-react';
+import { Bike, Check, ChevronLeft, Clock, Image as ImageIcon, MapPin, Minus, Plus, Search, Utensils, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import { RatingBadge } from '../../components/Stars';
@@ -9,12 +9,77 @@ import { deliveryNote, openingNote } from '../../components/RestaurantCard';
 import { formatRand, useCart } from '../../context/CartContext';
 import { assetUrl } from '../../services/platform';
 import { restaurantService, type MenuItem, type Restaurant } from '../../services/restaurant';
+import { bySection, groupRule, missingChoices, unitPrice, type OptionGroup } from '../../utils/menu';
 
-/** Item details with quantity, opened by tapping a dish. */
+/** One group of choices: radio buttons for "choose 1", check boxes otherwise. */
+const ChoiceGroup = ({ group, picked, onChange }: { group: OptionGroup; picked: string[]; onChange: (ids: string[]) => void }) => {
+    const mine = group.choices.filter(c => c.id && picked.includes(c.id)).map(c => c.id!);
+    const single = group.max_select === 1;
+    const toggle = (id: string) => {
+        const others = picked.filter(p => !mine.includes(p));
+        if (single) return onChange([...others, id]);
+        if (mine.includes(id)) return onChange([...others, ...mine.filter(m => m !== id)]);
+        if (mine.length >= group.max_select) return; // the limit is shown next to the title
+        onChange([...others, ...mine, id]);
+    };
+    const short = mine.length < group.min_select;
+    return (
+        <fieldset className="space-y-2">
+            <legend className="w-full flex items-center justify-between mb-2">
+                <span className="font-bold text-white">{group.name}</span>
+                <span className={clsx("text-xs font-bold px-2 py-0.5 rounded-md",
+                    short ? "bg-brand-500/10 text-brand-500" : "bg-gray-800 text-gray-400")}>
+                    {short ? 'Required · ' : ''}{groupRule(group)}
+                </span>
+            </legend>
+            {group.choices.map(choice => {
+                const id = choice.id!;
+                const on = mine.includes(id);
+                const soldOut = choice.available === false;
+                const full = !single && !on && mine.length >= group.max_select;
+                return (
+                    <label key={id} className={clsx(
+                        "flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors",
+                        on ? "border-brand-500 bg-brand-500/5" : "border-gray-800 hover:border-gray-700",
+                        (soldOut || full) && "opacity-50 cursor-not-allowed"
+                    )}>
+                        {/* the real control stays for keyboards and screen readers; the
+                            drawn one looks the same on every phone (old Android ignores colours) */}
+                        <input
+                            type={single ? 'radio' : 'checkbox'}
+                            name={group.id}
+                            checked={on}
+                            disabled={soldOut || full}
+                            onChange={() => toggle(id)}
+                            className="sr-only peer"
+                        />
+                        <span aria-hidden="true" className={clsx(
+                            "w-5 h-5 shrink-0 border-2 flex items-center justify-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-gray-900",
+                            single ? "rounded-full" : "rounded-md",
+                            on ? "border-brand-600 bg-brand-600" : "border-gray-600"
+                        )}>
+                            {on && (single
+                                ? <span className="w-2 h-2 rounded-full bg-white" />
+                                : <Check size={14} strokeWidth={3.5} className="text-white" />)}
+                        </span>
+                        <span className="flex-1 text-sm text-gray-200">{choice.name}{soldOut && ' (sold out)'}</span>
+                        {Number(choice.price) > 0 && <span className="text-sm font-bold text-gray-400">+{formatRand(choice.price)}</span>}
+                    </label>
+                );
+            })}
+        </fieldset>
+    );
+};
+
+/** Item details with choices and quantity, opened by tapping a dish. */
 const ItemSheet = ({ item, open, onClose, onAdd }: {
-    item: MenuItem; open: boolean; onClose: () => void; onAdd: (quantity: number) => void;
+    item: MenuItem; open: boolean; onClose: () => void; onAdd: (quantity: number, choiceIds: string[]) => void;
 }) => {
     const [quantity, setQuantity] = useState(1);
+    const [picked, setPicked] = useState<string[]>([]);
+    const groups = item.options ?? [];
+    const each = unitPrice(item.price, groups, picked);
+    const missing = missingChoices(groups, picked);
     useEffect(() => {
         const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
         window.addEventListener('keydown', onKey);
@@ -46,6 +111,11 @@ const ItemSheet = ({ item, open, onClose, onAdd }: {
                         <p className="text-lg font-bold text-brand-500 mt-1">{formatRand(item.price)}</p>
                     </div>
                     {item.description && <p className="text-gray-400 leading-relaxed">{item.description}</p>}
+                    {open && groups.length > 0 && (
+                        <div className="space-y-6 pt-2">
+                            {groups.map(group => <ChoiceGroup key={group.id} group={group} picked={picked} onChange={setPicked} />)}
+                        </div>
+                    )}
                     {open ? (
                         <div className="flex items-center gap-3 pt-2">
                             <div className="flex items-center bg-gray-950 border border-gray-800 rounded-2xl">
@@ -54,10 +124,11 @@ const ItemSheet = ({ item, open, onClose, onAdd }: {
                                 <button aria-label="One more" onClick={() => setQuantity(q => Math.min(50, q + 1))} className="p-3.5 text-gray-300 hover:text-white"><Plus size={18} /></button>
                             </div>
                             <button
-                                onClick={() => onAdd(quantity)}
-                                className="flex-1 py-4 bg-brand-600 hover:bg-brand-500 text-white font-black rounded-2xl"
+                                onClick={() => onAdd(quantity, picked)}
+                                disabled={missing.length > 0}
+                                className="flex-1 py-4 bg-brand-600 hover:bg-brand-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black rounded-2xl"
                             >
-                                Add {quantity} · {formatRand(Number(item.price) * quantity)}
+                                {missing.length > 0 ? `Choose ${missing[0].name.toLowerCase()}` : `Add ${quantity} · ${formatRand(each * quantity)}`}
                             </button>
                         </div>
                     ) : (
@@ -91,17 +162,21 @@ const Menu = () => {
 
     // Unknown (still loading) counts as open so the page does not flash "closed"
     const isOpen = restaurant?.is_open !== false;
-    const quantityOf = (id: string) => cartItems.find(i => i.id === id)?.quantity ?? 0;
+    // all lines of this dish (different choices are different lines)
+    const quantityOf = (id: string) => cartItems.filter(i => i.id === id).reduce((sum, i) => sum + i.quantity, 0);
     const orderable = (item: MenuItem) => item.is_available && isOpen;
+    const hasChoices = (item: MenuItem) => (item.options?.length ?? 0) > 0;
 
-    const add = (item: MenuItem, quantity = 1) => {
+    const add = (item: MenuItem, quantity = 1, choiceIds: string[] = []) => {
         if (!orderable(item)) return;
-        addToCart({ ...item, restaurant_id: restaurantId, restaurant_name: restaurant?.name });
-        if (quantity > 1) updateQuantity(item.id, quantity - 1);
+        addToCart({ ...item, restaurant_id: restaurantId, restaurant_name: restaurant?.name }, choiceIds, quantity);
     };
 
     const query = search.trim().toLowerCase();
     const shown = items.filter(item => !query || item.name.toLowerCase().includes(query) || (item.description ?? '').toLowerCase().includes(query));
+    const sections = bySection(shown, restaurant?.menu_sections ?? []);
+    const named = sections.filter(s => s.name);
+    const sectionId = (name: string) => `section-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
     const banner = restaurant?.logo_img_url || items.find(item => item.image_url)?.image_url;
 
     return (
@@ -175,52 +250,81 @@ const Menu = () => {
                         <p className="text-gray-400 font-bold">{items.length === 0 ? 'This restaurant has not added its menu yet.' : 'No dishes match your search.'}</p>
                     </div>
                 ) : (
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {shown.map(item => {
-                            const inCart = quantityOf(item.id);
-                            return (
-                                <li key={item.id}>
-                                    <div
-                                        className={clsx(
-                                            "group flex gap-4 p-4 h-full bg-gray-900 border rounded-2xl transition-colors",
-                                            item.is_available ? "border-gray-800 hover:border-gray-700" : "border-gray-800 opacity-60"
-                                        )}
-                                    >
-                                        <button onClick={() => setViewing(item)} className="flex-1 min-w-0 text-left space-y-1.5">
-                                            <p className="font-bold text-white text-lg leading-snug">{item.name}</p>
-                                            <p className="font-bold text-gray-300">{formatRand(item.price)}</p>
-                                            {item.description && <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>}
-                                            {!item.is_available && <p className="text-xs font-black uppercase tracking-widest text-red-400">Sold out</p>}
-                                        </button>
-                                        <div className="relative flex-shrink-0">
-                                            <button onClick={() => setViewing(item)} aria-label={`About ${item.name}`} className="block w-28 h-28 rounded-xl overflow-hidden bg-gray-800">
-                                                {item.image_url
-                                                    ? <img src={assetUrl(item.image_url)} alt="" loading="lazy" className="w-full h-full object-cover" />
-                                                    : <span className="w-full h-full flex items-center justify-center text-gray-700"><ImageIcon size={28} /></span>}
-                                            </button>
-                                            {orderable(item) && (
-                                                inCart > 0 ? (
-                                                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center bg-gray-950 border border-gray-800 rounded-full shadow-lg">
-                                                        <button aria-label={`One less ${item.name}`} onClick={() => updateQuantity(item.id, -1)} className="p-2 text-gray-300 hover:text-white"><Minus size={14} /></button>
-                                                        <span className="w-6 text-center text-sm font-black">{inCart}</span>
-                                                        <button aria-label={`One more ${item.name}`} onClick={() => updateQuantity(item.id, 1)} className="p-2 text-gray-300 hover:text-white"><Plus size={14} /></button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        aria-label={`Add ${item.name}`}
-                                                        onClick={() => { add(item); toast.success(`${item.name} added`, { duration: 1500 }); }}
-                                                        className="absolute -bottom-2 -right-2 w-10 h-10 bg-brand-600 hover:bg-brand-500 text-white rounded-full shadow-lg flex items-center justify-center"
-                                                    >
-                                                        <Plus size={20} />
+                    <div className="space-y-10">
+                        {named.length > 1 && (
+                            <nav aria-label="Menu sections" className="sticky top-16 z-10 -mx-4 px-4 py-2 bg-gray-950/95 backdrop-blur flex gap-2 overflow-x-auto no-scrollbar">
+                                {named.map(section => (
+                                    <a key={section.name} href={`#${sectionId(section.name)}`}
+                                        className="px-4 py-2 rounded-full bg-gray-900 border border-gray-800 hover:border-gray-600 text-sm font-bold text-gray-300 whitespace-nowrap">
+                                        {section.name}
+                                    </a>
+                                ))}
+                            </nav>
+                        )}
+                        {sections.map(section => (
+                            <div key={section.name || '_'} id={section.name ? sectionId(section.name) : undefined} className="space-y-4 scroll-mt-32">
+                                {section.name && <h3 className="text-xl font-black">{section.name}</h3>}
+                                <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {section.items.map(item => {
+                                    const inCart = quantityOf(item.id);
+                                    return (
+                                        <li key={item.id}>
+                                            <div
+                                                className={clsx(
+                                                    "group flex gap-4 p-4 h-full bg-gray-900 border rounded-2xl transition-colors",
+                                                    item.is_available ? "border-gray-800 hover:border-gray-700" : "border-gray-800 opacity-60"
+                                                )}
+                                            >
+                                                <button onClick={() => setViewing(item)} className="flex-1 min-w-0 text-left space-y-1.5">
+                                                    <p className="font-bold text-white text-lg leading-snug">{item.name}</p>
+                                                    <p className="font-bold text-gray-300">
+                                                        {hasChoices(item) && item.options!.some(g => g.choices.some(c => Number(c.price) > 0)) ? 'From ' : ''}{formatRand(item.price)}
+                                                    </p>
+                                                    {hasChoices(item) && <p className="text-xs font-bold text-brand-500">Choose {item.options!.map(g => g.name.toLowerCase()).join(', ')}</p>}
+                                                    {item.description && <p className="text-sm text-gray-500 line-clamp-2">{item.description}</p>}
+                                                    {!item.is_available && <p className="text-xs font-black uppercase tracking-widest text-red-400">Sold out</p>}
+                                                </button>
+                                                <div className="relative flex-shrink-0">
+                                                    <button onClick={() => setViewing(item)} aria-label={`About ${item.name}`} className="block w-28 h-28 rounded-xl overflow-hidden bg-gray-800">
+                                                        {item.image_url
+                                                            ? <img src={assetUrl(item.image_url)} alt="" loading="lazy" className="w-full h-full object-cover" />
+                                                            : <span className="w-full h-full flex items-center justify-center text-gray-700"><ImageIcon size={28} /></span>}
                                                     </button>
-                                                )
-                                            )}
-                                        </div>
-                                    </div>
-                                </li>
-                            );
-                        })}
-                    </ul>
+                                                    {orderable(item) && (
+                                                        inCart > 0 && !hasChoices(item) ? (
+                                                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center bg-gray-950 border border-gray-800 rounded-full shadow-lg">
+                                                                <button aria-label={`One less ${item.name}`} onClick={() => updateQuantity(item.id, -1)} className="p-2 text-gray-300 hover:text-white"><Minus size={14} /></button>
+                                                                <span className="w-6 text-center text-sm font-black">{inCart}</span>
+                                                                <button aria-label={`One more ${item.name}`} onClick={() => updateQuantity(item.id, 1)} className="p-2 text-gray-300 hover:text-white"><Plus size={14} /></button>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                aria-label={hasChoices(item) ? `Choose options for ${item.name}` : `Add ${item.name}`}
+                                                                onClick={() => {
+                                                                    // dishes with choices open the sheet so the customer picks first
+                                                                    if (hasChoices(item)) { setViewing(item); return; }
+                                                                    add(item); toast.success(`${item.name} added`, { duration: 1500 });
+                                                                }}
+                                                                className="absolute -bottom-2 -right-2 w-10 h-10 bg-brand-600 hover:bg-brand-500 text-white rounded-full shadow-lg flex items-center justify-center"
+                                                            >
+                                                                <Plus size={20} />
+                                                                {inCart > 0 && (
+                                                                    <span className="absolute -top-1.5 -left-1.5 min-w-5 h-5 px-1 rounded-full bg-gray-950 border border-gray-800 text-[11px] font-black text-white flex items-center justify-center">
+                                                                        {inCart}
+                                                                    </span>
+                                                                )}
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                                </ul>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </section>
 
@@ -229,8 +333,8 @@ const Menu = () => {
                     item={viewing}
                     open={orderable(viewing)}
                     onClose={() => setViewing(null)}
-                    onAdd={quantity => {
-                        add(viewing, quantity);
+                    onAdd={(quantity, choiceIds) => {
+                        add(viewing, quantity, choiceIds);
                         toast.success(`${quantity} × ${viewing.name} added`, { duration: 1500 });
                         setViewing(null);
                     }}

@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle2, Circle, Navigation, XCircle } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { CheckCircle2, Circle, XCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { clsx } from 'clsx';
 import api from '../services/api';
 import { errorMessage } from '../services/billing';
 import { distanceKm, useFollowDriver } from '../hooks/useLiveLocation';
 import { Stars } from './Stars';
+// The map library is big: download it only when an order is actually on its way
+const DriverMap = lazy(() => import('./DriverMap'));
 
 const STEPS = [
     { key: 'placed', title: 'Order placed', detail: 'The restaurant has your order.' },
@@ -46,21 +48,20 @@ const LiveTracking = ({ order }: { order: OrderLike }) => {
     const when = secondsAgo < 60 ? 'just now' : `${Math.round(secondsAgo / 60)} min ago`;
 
     return (
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-brand-500/10 border border-brand-500/20">
-            <div>
+        <div className="space-y-3" onClick={event => event.stopPropagation()}>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-bold text-white">
                     {away == null ? 'Your driver is on the move' : away < 0.15 ? 'Your driver is arriving' : `Your driver is about ${away.toFixed(1)} km away`}
                 </p>
                 <p className="text-xs text-gray-400">Updated {when}</p>
             </div>
-            <a
-                href={`https://www.google.com/maps/search/?api=1&query=${position.lat},${position.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center space-x-2 px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl text-sm"
-            >
-                <Navigation size={16} /><span>See on map</span>
-            </a>
+            <Suspense fallback={<div className="h-64 sm:h-72 rounded-2xl bg-gray-900 border border-gray-800 animate-pulse" />}>
+                <DriverMap
+                    driver={position}
+                    destination={hasDestination ? { lat: order.delivery_lat!, lng: order.delivery_lng! } : null}
+                    className="h-64 sm:h-72"
+                />
+            </Suspense>
         </div>
     );
 };

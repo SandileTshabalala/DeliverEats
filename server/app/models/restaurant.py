@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, Integer
+from sqlalchemy import Column, String, Boolean, Integer, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.schema import ForeignKey
 from app.db.base import Base
@@ -25,6 +25,8 @@ class Restaurant(Base):
     vat_number = Column(String(20), nullable=True)
     # Customers call this to change or cancel an order (empty = the owner's number)
     phone = Column(String(20), nullable=True)
+    # Order of the menu sections, as the restaurant arranged them (["Mains", "Sides", "Drinks"])
+    menu_sections = Column(JSON, nullable=True)
 
     @property
     def contact_phone(self):

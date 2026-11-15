@@ -8,6 +8,7 @@ import {
 } from '../../services/billing';
 import type { Plan, PlanInput, Subscription } from '../../services/billing';
 
+import EnforcementSwitch from '../../components/admin/EnforcementSwitch';
 const emptyPlan: PlanInput = {
     name: '', description: '', price: '', interval_months: 1, trial_days: 0,
     max_orders_per_month: null, is_active: true, sort_order: 0,
@@ -109,8 +110,6 @@ const Billing = () => {
 
     if (loading) return <div className="p-8 text-gray-500">Loading billing...</div>;
 
-    const enforced = subscriptions[0]?.enforced ?? false;
-
     return (
         <div className="space-y-10 animate-in fade-in duration-500">
             <div>
@@ -118,12 +117,7 @@ const Billing = () => {
                 <p className="text-gray-400 mt-1">Restaurants keep all of their order money. They pay you for a plan.</p>
             </div>
 
-            {!enforced && (
-                <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded-2xl px-5 py-4 text-sm">
-                    Subscriptions are not enforced yet, so every restaurant is open whether it has paid or not.
-                    Once your plans are set up and assigned, set <span className="font-mono">SUBSCRIPTIONS_ENFORCED=true</span> on the server.
-                </div>
-            )}
+            <EnforcementSwitch onChanged={load} />
 
             {/* Plans */}
             <section className="space-y-4">

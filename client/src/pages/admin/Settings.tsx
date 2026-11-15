@@ -186,7 +186,7 @@ const Settings = () => {
                             <Row ok={status.payfast.configured} title="Subscription payments (your PayFast account)"
                                 detail={status.payfast.configured ? (status.payfast.sandbox ? 'On, in sandbox mode: no real money is taken' : 'On, live') : 'Off. Restaurants can only pay by EFT or cash, which you record under Subscriptions.'} />
                             <Row ok={status.subscriptions.enforced} title="Subscriptions enforced"
-                                detail={status.subscriptions.enforced ? `Yes. Unpaid restaurants are hidden ${status.subscriptions.grace_days} days after their plan ends.` : 'No. Every restaurant is open whether it has paid or not. Set SUBSCRIPTIONS_ENFORCED=true when your plans are assigned.'} />
+                                detail={status.subscriptions.enforced ? `Yes. Unpaid restaurants are hidden ${status.subscriptions.grace_days} days after their plan ends.` : 'No. Every restaurant is open whether it has paid or not. Switch it on in Subscriptions when your plans are assigned.'} />
                             <Row ok={status.legal_contact_set} title="Business details on the Privacy and Terms pages"
                                 detail={status.legal_contact_set ? 'Set' : 'Not set. Fill in Business details above: PayFast and POPIA expect them to be published.'} />
                             <Row ok={status.secrets_encryption_key_set} title="Encryption key for restaurants' PayFast keys"

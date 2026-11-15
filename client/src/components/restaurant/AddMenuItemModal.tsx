@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { assetUrl, resizeImage } from '../../services/platform';
-import { X, Loader2, UtensilsCrossed, AlignLeft, Banknote, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, UtensilsCrossed, AlignLeft, Banknote, Image as ImageIcon, LayoutList, ListChecks } from 'lucide-react';
 import { restaurantService, type MenuItem } from '../../services/restaurant';
 import { toast } from 'react-hot-toast';
+import OptionsEditor from './OptionsEditor';
+import { cleanOptions, optionsProblem, type OptionGroup } from '../../utils/menu';
 
 interface AddMenuItemModalProps {
     isOpen: boolean;
@@ -10,9 +12,11 @@ interface AddMenuItemModalProps {
     onSuccess: () => void;
     restaurantId: string;
     itemToEdit?: MenuItem | null;
+    /** sections already on the menu, suggested while typing */
+    sections?: string[];
 }
 
-const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, onSuccess, restaurantId, itemToEdit }) => {
+const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, onSuccess, restaurantId, itemToEdit, sections = [] }) => {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');
@@ -21,6 +25,8 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
     const [photo, setPhoto] = useState<Blob | null>(null);
     const [preview, setPreview] = useState<string>('');
     const [isAvailable, setIsAvailable] = useState(true);
+    const [section, setSection] = useState('');
+    const [options, setOptions] = useState<OptionGroup[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -32,6 +38,8 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
             setPreview(assetUrl(itemToEdit.image_url) || '');
             setPhoto(null);
             setIsAvailable(itemToEdit.is_available);
+            setSection(itemToEdit.section ?? '');
+            setOptions(structuredClone(itemToEdit.options ?? []));
         } else {
             setName('');
             setDescription('');
@@ -40,6 +48,8 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
             setPreview('');
             setPhoto(null);
             setIsAvailable(true);
+            setSection('');
+            setOptions([]);
         }
     }, [itemToEdit, isOpen]);
 
@@ -71,6 +81,11 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
             toast.error('Name and Price are required');
             return;
         }
+        const problem = optionsProblem(options);
+        if (problem) {
+            toast.error(problem);
+            return;
+        }
 
         try {
             setIsSubmitting(true);
@@ -79,7 +94,9 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                 description,
                 price: parseFloat(price),
                 image_url: imageUrl || null,
-                is_available: isAvailable
+                is_available: isAvailable,
+                section: section.trim() || null,
+                options: cleanOptions(options),
             };
 
             const saved = itemToEdit
@@ -111,7 +128,7 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
             ></div>
 
             {/* Modal */}
-            <div className="bg-gray-900 border border-gray-800 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative z-10 animate-in zoom-in-95 duration-200">
+            <div className="bg-gray-900 border border-gray-800 w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl shadow-2xl relative z-10 animate-in zoom-in-95 duration-200">
                 <div className="p-6 border-b border-gray-800 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-brand-500/10 rounded-xl flex items-center justify-center text-brand-500">
@@ -173,6 +190,44 @@ const AddMenuItemModal: React.FC<AddMenuItemModalProps> = ({ isOpen, onClose, on
                             placeholder="0.00"
                             className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600"
                         />
+                    </div>
+
+                    <div className="space-y-2">
+                        <label htmlFor="dish-section" className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
+                            <LayoutList size={14} className="text-brand-500/50" />
+                            <span>Menu section</span>
+                        </label>
+                        <input
+                            id="dish-section"
+                            list="menu-sections"
+                            value={section}
+                            maxLength={40}
+                            onChange={(e) => setSection(e.target.value)}
+                            placeholder="e.g. Kotas, Sides, Drinks"
+                            className="w-full bg-gray-950 border border-gray-800 rounded-2xl px-4 py-3 text-white outline-none focus:ring-1 focus:ring-brand-500 transition-all placeholder-gray-600"
+                        />
+                        <datalist id="menu-sections">
+                            {sections.map(name => <option key={name} value={name} />)}
+                        </datalist>
+                        {sections.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5">
+                                {sections.map(name => (
+                                    <button key={name} type="button" onClick={() => setSection(name)}
+                                        className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${section.toLowerCase() === name.toLowerCase() ? 'bg-brand-500 border-brand-500 text-white' : 'border-gray-800 text-gray-400 hover:border-gray-600'}`}>
+                                        {name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center space-x-2">
+                            <ListChecks size={14} className="text-brand-500/50" />
+                            <span>Options &amp; extras (optional)</span>
+                        </span>
+                        <p className="text-xs text-gray-600">Spice level, extras, a choice of drink... Extra prices are added to the dish price.</p>
+                        <OptionsEditor groups={options} onChange={setOptions} />
                     </div>
 
                     <div className="space-y-2">

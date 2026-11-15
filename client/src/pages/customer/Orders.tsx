@@ -23,6 +23,8 @@ import { orderRef, fullName, phoneHref, formatPhone } from '../../services/order
 import type { OrderPerson } from '../../services/orders';
 
 import { itemCount, when } from '../../utils/orderDisplay';
+import { describePicks, missingChoices, type PickedOption } from '../../utils/menu';
+import { restaurantService, type MenuItem } from '../../services/restaurant';
 interface OrderItem {
     id: string;
     menu_item_id: string;
@@ -30,6 +32,8 @@ interface OrderItem {
     quantity: number;
     price: number;
     name: string;
+    /** what was picked: spice level, extras... */
+    options?: PickedOption[] | null;
 }
 
 interface Order {
@@ -108,17 +112,33 @@ const Orders = () => {
 
     // Put the same dishes back in the cart. The server re-prices them at checkout
     // and says if something is no longer on the menu.
-    const { addToCart, updateQuantity } = useCart();
+    // The picks are matched to today's menu by name, so changed prices and
+    // choices are taken from the menu as it is now.
+    const { addToCart } = useCart();
     const navigate = useNavigate();
-    const orderAgain = (order: Order) => {
+    const orderAgain = async (order: Order) => {
+        let menu: MenuItem[] = [];
+        try {
+            menu = await restaurantService.getMenu(order.restaurant_id);
+        } catch {
+            toast.error('Could not load the menu. Please try again.');
+            return;
+        }
+        let skipped = 0;
         order.items.forEach(item => {
-            addToCart({
-                id: item.menu_item_id, name: item.name, description: item.description, price: Number(item.price),
-                is_available: true, restaurant_id: order.restaurant_id, restaurant_name: order.restaurant_name,
-            });
-            if (item.quantity > 1) updateQuantity(item.menu_item_id, item.quantity - 1);
+            const dish = menu.find(m => m.id === item.menu_item_id);
+            if (!dish) { skipped += 1; return; }
+            const ids = (item.options ?? []).map(pick =>
+                dish.options?.find(g => g.name === pick.group)?.choices.find(c => c.name === pick.name && c.available !== false)?.id);
+            if (ids.some(id => !id) || missingChoices(dish.options, ids as string[]).length) { skipped += 1; return; }
+            addToCart({ ...dish, restaurant_id: order.restaurant_id, restaurant_name: order.restaurant_name }, ids as string[], item.quantity);
         });
-        toast.success('Added to your cart');
+        if (skipped === order.items.length) {
+            toast.error('These dishes are no longer on the menu as you ordered them.');
+            return;
+        }
+        if (skipped) toast(`${skipped} dish${skipped > 1 ? 'es' : ''} changed on the menu and ${skipped > 1 ? 'were' : 'was'} left out.`, { icon: 'ℹ️' });
+        else toast.success('Added to your cart');
         navigate('/customer/cart');
     };
 
@@ -344,7 +364,12 @@ const Orders = () => {
                                                             <li key={i} className="flex items-center justify-between p-4 bg-gray-900 border border-gray-800 rounded-2xl">
                                                                 <div className="flex items-center space-x-3">
                                                                     <div className="w-2 h-2 bg-brand-500 rounded-full"></div>
-                                                                    <span className="font-bold text-sm text-gray-300 uppercase italic tracking-tight">{item.name}</span>
+                                                                    <div>
+                                                                        <span className="font-bold text-sm text-gray-300 uppercase italic tracking-tight">{item.name}</span>
+                                                                        {item.options && item.options.length > 0 && (
+                                                                            <span className="block text-xs text-gray-500">{describePicks(item.options)}</span>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                                 <div className="text-right">
                                                                     <span className="text-xs font-black text-white block">x{item.quantity}</span>

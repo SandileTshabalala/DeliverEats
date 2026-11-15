@@ -3,8 +3,16 @@ from app.core.cache import get_cache, set_cache, delete_cache
 from app.models.menu import Menu
 from app.models.menu_item import MenuItem
 from app.schemas.menu import MenuItemCreate
+from app.services import menu_options
 
-CACHE_TTL = 60  # seconds
+# Every change to a dish clears the menu cache, so it can be kept a while
+CACHE_TTL = 300  # seconds
+
+
+def _clean_section(name):
+    """'  mains ' -> 'mains' kept as typed; empty -> None (the unnamed first section)."""
+    name = " ".join((name or "").split())
+    return name or None
 
 async def create_menu_item(db: Session, menu_id: str, payload: MenuItemCreate):
     from starlette.concurrency import run_in_threadpool
@@ -15,7 +23,9 @@ async def create_menu_item(db: Session, menu_id: str, payload: MenuItemCreate):
             name=payload.name,
             description=payload.description,
             price=payload.price,
-            image_url=payload.image_url
+            image_url=payload.image_url,
+            section=_clean_section(payload.section),
+            options=menu_options.normalise(payload.options),
         )
         db.add(item)
         db.commit()
@@ -50,7 +60,9 @@ async def get_menu_items(db: Session, menu_id: str):
                 "description": i.description,
                 "price": float(i.price),
                 "is_available": i.is_available,
-                "image_url": i.image_url
+                "image_url": i.image_url,
+                "section": i.section,
+                "options": i.options or [],
             } for i in items
         ]
 
@@ -60,11 +72,21 @@ async def get_menu_items(db: Session, menu_id: str):
     return result
 
 async def get_restaurant_menu(db: Session, restaurant_id: str):
+    """
+    Public menu. Which menu a restaurant uses almost never changes, so that is
+    cached too: a cached menu is served without asking the database at all
+    (each question costs 300-500 ms while the database is far away).
+    """
     from starlette.concurrency import run_in_threadpool
-    menu = await run_in_threadpool(lambda: db.query(Menu).filter(Menu.restaurant_id == restaurant_id, Menu.is_active == True).first())
-    if not menu:
-        return []
-    return await get_menu_items(db, menu.id)
+    key = f"menu_of:{restaurant_id}"
+    menu_id = await get_cache(key)
+    if not menu_id:
+        menu = await run_in_threadpool(lambda: db.query(Menu).filter(Menu.restaurant_id == restaurant_id, Menu.is_active == True).first())
+        if not menu:
+            return []
+        menu_id = menu.id
+        await set_cache(key, menu_id, ttl=3600)
+    return await get_menu_items(db, menu_id)
 
 def get_active_menu_by_restaurant(db: Session, restaurant_id: str):
     menu = db.query(Menu).filter(Menu.restaurant_id == restaurant_id, Menu.is_active == True).first()
@@ -87,6 +109,10 @@ async def update_menu_item(db: Session, item_id: str, payload: dict):
         for key in ("name", "description", "price", "image_url", "is_available"):
             if key in payload:
                 setattr(item, key, payload[key])
+        if "section" in payload:
+            item.section = _clean_section(payload["section"])
+        if "options" in payload and payload["options"] is not None:
+            item.options = menu_options.normalise(payload["options"])
                 
         db.commit()
         db.refresh(item)

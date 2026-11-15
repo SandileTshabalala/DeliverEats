@@ -5,6 +5,7 @@ import { orderRef, fullName, phoneHref } from '../services/orders';
 import type { OrderPerson } from '../services/orders';
 
 import { serverDate } from '../utils/orderDisplay';
+import { describePicks, type PickedOption } from '../utils/menu';
 export interface OrderDetails {
     id: string;
     status: string;
@@ -20,7 +21,7 @@ export interface OrderDetails {
     delivery_lng?: number | null;
     payment_status?: string;
     payment_method?: string | null;
-    items: { id?: string; name: string; quantity: number; price: number | string }[];
+    items: { id?: string; name: string; quantity: number; price: number | string; options?: PickedOption[] | null }[];
 }
 
 interface Props {
@@ -137,7 +138,12 @@ const OrderDetailsModal = ({ order, onClose, actions }: Props) => {
                         <ul className="divide-y divide-gray-800">
                             {order.items.map((item, index) => (
                                 <li key={item.id ?? index} className="flex justify-between py-2 text-sm">
-                                    <span className="text-gray-300"><span className="text-brand-500 font-bold mr-2">{item.quantity} x</span>{item.name}</span>
+                                    <span className="text-gray-300">
+                                        <span className="text-brand-500 font-bold mr-2">{item.quantity} x</span>{item.name}
+                                        {item.options && item.options.length > 0 && (
+                                            <span className="block pl-7 text-xs text-gray-500">{describePicks(item.options)}</span>
+                                        )}
+                                    </span>
                                     <span className="text-white font-bold">{formatRand(Number(item.price) * item.quantity)}</span>
                                 </li>
                             ))}

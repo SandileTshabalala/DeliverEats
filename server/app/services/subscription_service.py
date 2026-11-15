@@ -6,7 +6,8 @@ subscription for one of the plans the owner creates in the admin panel, either
 through PayFast recurring billing (on the PLATFORM's PayFast account) or by
 EFT / cash that the admin records by hand.
 
-Nothing is enforced until SUBSCRIPTIONS_ENFORCED=true, so existing restaurants
+Nothing is enforced until the platform owner switches it on (Admin > Subscriptions;
+SUBSCRIPTIONS_ENFORCED is only the starting value), so existing restaurants
 keep working while plans are being set up.
 """
 import calendar
@@ -85,18 +86,62 @@ def orders_this_month(db: Session, restaurant_id: str) -> int:
     ).count()
 
 
+# ---------------------------------------------------------------- the on/off switch
+# The platform owner turns enforcement on and off in Admin > Subscriptions. The
+# SUBSCRIPTIONS_ENFORCED setting is only the starting value until they do.
+ENFORCED_KEY = "subscriptions_enforced"
+_ENFORCED_TTL = 10.0  # seconds a process trusts its copy (the restaurant list asks per restaurant)
+_enforced_cache: dict = {}
+
+
+def enforced(db: Session) -> bool:
+    """Are unpaid restaurants hidden and blocked from taking orders?"""
+    import time
+    cached = _enforced_cache.get("value")
+    if cached is not None and time.monotonic() - cached[1] < _ENFORCED_TTL:
+        return cached[0]
+    from app.models.platform_setting import PlatformSetting
+    row = db.query(PlatformSetting).filter(PlatformSetting.key == ENFORCED_KEY).first()
+    value = (row.value == "true") if row and row.value in ("true", "false") else bool(settings.SUBSCRIPTIONS_ENFORCED)
+    _enforced_cache["value"] = (value, time.monotonic())
+    return value
+
+
+def set_enforced(db: Session, value: bool) -> bool:
+    from app.models.platform_setting import PlatformSetting
+    row = db.query(PlatformSetting).filter(PlatformSetting.key == ENFORCED_KEY).first()
+    if row:
+        row.value = "true" if value else "false"
+    else:
+        db.add(PlatformSetting(key=ENFORCED_KEY, value="true" if value else "false"))
+    db.commit()
+    _enforced_cache.clear()
+    _invalidate_restaurant_list()  # customers see the change at once
+    logger.info(f"Subscriptions enforcement turned {'ON' if value else 'OFF'}")
+    return value
+
+
+def would_close(db: Session) -> List[str]:
+    """Restaurants that would disappear for customers if enforcement were on now."""
+    names = []
+    for restaurant in db.query(Restaurant).filter(Restaurant.is_active == True).order_by(Restaurant.name).all():  # noqa: E712
+        if effective_status(get_subscription(db, restaurant.id)) not in LIVE_STATUSES:
+            names.append(restaurant.name)
+    return names
+
+
 def is_restaurant_live(db: Session, restaurant: Restaurant) -> bool:
     """Should customers be able to see and order from this restaurant?"""
     if not restaurant.is_active:
         return False
-    if not settings.SUBSCRIPTIONS_ENFORCED:
+    if not enforced(db):
         return True
     return effective_status(get_subscription(db, restaurant.id)) in LIVE_STATUSES
 
 
 def ensure_can_take_orders(db: Session, restaurant: Restaurant) -> None:
     """Raise if the restaurant may not receive a new order right now."""
-    if not settings.SUBSCRIPTIONS_ENFORCED:
+    if not enforced(db):
         return
     subscription = get_subscription(db, restaurant.id)
     if effective_status(subscription) not in LIVE_STATUSES:
@@ -119,7 +164,7 @@ def describe(db: Session, restaurant: Restaurant) -> dict:
         "restaurant_name": restaurant.name,
         "status": status,
         "is_live": is_restaurant_live(db, restaurant),
-        "enforced": settings.SUBSCRIPTIONS_ENFORCED,
+        "enforced": enforced(db),
         "grace_days": settings.SUBSCRIPTION_GRACE_DAYS,
         "plan": plan,
         "current_period_end": subscription.current_period_end if subscription else None,

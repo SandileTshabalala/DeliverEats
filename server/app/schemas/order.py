@@ -18,6 +18,8 @@ class OrderBase(BaseModel):
 class OrderItemCreate(BaseModel):
     menu_item_id: str
     quantity: int = Field(gt=0, le=50)
+    # ids of the choices picked for this dish (spice level, extras...)
+    options: List[str] = Field(default_factory=list, max_length=40)
 
 
 class OrderCreate(BaseModel):

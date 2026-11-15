@@ -81,6 +81,7 @@ export interface RestaurantProfile {
     /** customers call this to change or cancel an order; null = the owner's number */
     phone: string | null;
     owner_phone: string | null;
+    menu_sections: string[];
 }
 
 export interface RestaurantReviews {
@@ -124,6 +125,9 @@ export const platform = {
 
     // a restaurant's own profile
     profile: async (): Promise<RestaurantProfile> => (await api.get("/manage/restaurant")).data,
+    /** order of the menu sections customers see */
+    saveMenuSections: async (sections: string[]): Promise<string[]> =>
+        (await api.put("/manage/menu-sections", { sections })).data.menu_sections,
     updateProfile: async (data: Partial<Pick<RestaurantProfile, 'name' | 'address' | 'description' | 'category_ids' | 'accepting_orders' | 'opens_at' | 'closes_at' | 'vat_number' | 'phone'>>): Promise<RestaurantProfile> =>
         (await api.patch("/manage/restaurant", data)).data,
     uploadLogo: async (image: Blob): Promise<RestaurantProfile> => {

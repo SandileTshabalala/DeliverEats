@@ -130,6 +130,7 @@ def _profile(restaurant: Restaurant, db: Session) -> dict:
         "vat_number": restaurant.vat_number,
         "phone": restaurant.phone,
         "owner_phone": restaurant.admin.contact_number if restaurant.admin else None,
+        "menu_sections": restaurant.menu_sections or [],
         "is_open": restaurant_info.is_open_now(restaurant),
         "category_ids": chosen,
         "category_options": options,
@@ -182,6 +183,30 @@ def update_profile(
     db.refresh(restaurant)
     _refresh_public_listing(restaurant.id)
     return _profile(restaurant, db)
+
+
+class MenuSectionOrder(BaseModel):
+    sections: List[str] = Field(max_length=40)
+
+
+@router.put("/menu-sections")
+def order_menu_sections(
+    payload: MenuSectionOrder,
+    db: Session = Depends(get_db),
+    restaurant: Restaurant = Depends(get_current_restaurant),
+    user=Depends(restaurant_user),
+) -> dict:
+    """The order the menu sections appear in for customers ("Mains" before "Drinks")."""
+    owner_only(restaurant, user)
+    names = []
+    for name in payload.sections:
+        name = " ".join(name.split())[:40]
+        if name and name.lower() not in {n.lower() for n in names}:
+            names.append(name)
+    restaurant.menu_sections = names
+    db.commit()
+    _refresh_public_listing(restaurant.id)
+    return {"menu_sections": names}
 
 
 @router.get("/reviews")

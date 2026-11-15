@@ -17,6 +17,7 @@ import { clsx } from 'clsx';
 import { useOrderWebSocket } from '../../hooks/useOrderWebSocket';
 
 import { itemCount, orderStatus, when } from '../../utils/orderDisplay';
+import type { PickedOption } from '../../utils/menu';
 type Tab = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 const TABS: { id: Tab; label: string }[] = [
@@ -251,8 +252,16 @@ const RestaurantOrders = () => {
                                         <div className="space-y-2">
                                             {order.items && order.items.length > 0 ? (
                                                 order.items.map((item: any, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center py-1">
-                                                        <span className="text-sm text-gray-300"><span className="text-brand-500 font-bold mr-2">{item.quantity}x</span> {item.name || 'Menu Item'}</span>
+                                                    <div key={idx} className="flex justify-between items-start py-1">
+                                                        <span className="text-sm text-gray-300">
+                                                            <span className="text-brand-500 font-bold mr-2">{item.quantity}x</span> {item.name || 'Menu Item'}
+                                                            {item.options?.length > 0 && (
+                                                                // the kitchen must see every pick: one per line, group first
+                                                                <span className="block pl-7 mt-0.5 text-xs text-gray-400">
+                                                                    {item.options.map((o: PickedOption) => `${o.group}: ${o.name}`).join(' · ')}
+                                                                </span>
+                                                            )}
+                                                        </span>
                                                         <span className="text-sm font-bold text-white">{formatRand(Number(item.price) * item.quantity)}</span>
                                                     </div>
                                                 ))

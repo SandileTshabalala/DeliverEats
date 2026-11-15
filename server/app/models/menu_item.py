@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Boolean, Numeric, ForeignKey, Index
+from sqlalchemy import Column, String, Boolean, Numeric, ForeignKey, Index, JSON
 from app.db.base import Base
 from sqlalchemy.orm import relationship
 
@@ -13,6 +13,10 @@ class MenuItem(Base):
     price = Column(Numeric(10, 2), nullable=False)
     is_available = Column(Boolean, default=True, index=True)
     image_url = Column(String, nullable=True)
+    # Where it sits on the menu ("Mains", "Drinks"...); empty = the first, unnamed section
+    section = Column(String(40), nullable=True)
+    # Choices the customer makes (see app.services.menu_options)
+    options = Column(JSON, nullable=True)
     # Relationships
     menu = relationship("Menu", back_populates="items")
     order_items = relationship("OrderItem", back_populates="menu_item")

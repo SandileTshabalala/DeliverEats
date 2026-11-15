@@ -1,4 +1,5 @@
 import api from "./api";
+import type { OptionGroup } from "../utils/menu";
 
 export interface Restaurant {
     id: string;
@@ -20,6 +21,8 @@ export interface Restaurant {
     delivery_fee_from?: string | null;
     delivery_per_km?: boolean;
     free_delivery_over?: string | null;
+    /** order of the menu sections, as the restaurant arranged them */
+    menu_sections?: string[] | null;
 }
 
 export interface MenuItem {
@@ -32,6 +35,10 @@ export interface MenuItem {
     restaurant_id?: string;
     /** kept on cart items so the cart bar can say where the order is from */
     restaurant_name?: string;
+    /** "Mains", "Drinks"... (empty = the first, unnamed section) */
+    section?: string | null;
+    /** choices the customer makes: spice level, extras... */
+    options?: OptionGroup[];
 }
 
 export const restaurantService = {

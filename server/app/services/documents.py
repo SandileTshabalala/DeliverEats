@@ -34,6 +34,13 @@ LINE = (230, 225, 219)      # gray-200
 
 
 # ---------------------------------------------------------------- formatting
+
+def _item_label(item) -> str:
+    """'Kota (Hot, Extra chips)': the dish with what the customer picked."""
+    from app.services.menu_options import describe
+    picked = describe(getattr(item, "options", None))
+    return f"{item.name} ({picked})" if picked else item.name
+
 def local(moment: Optional[datetime]) -> Optional[datetime]:
     """Stored times are UTC; documents show the restaurants' local time."""
     return moment + timedelta(hours=settings.LOCAL_UTC_OFFSET_HOURS) if moment else None
@@ -265,7 +272,7 @@ def order_invoice_pdf(order, restaurant) -> bytes:
         ("Status", {"completed": "Paid", "pay_on_delivery": "Pay on delivery", "pending": "Awaiting payment",
                     "failed": "Payment failed", "unpaid": "Unpaid"}.get(order.payment_status, order.payment_status)),
     ])
-    rows = [[item.name, str(item.quantity), money(item.price), money(Decimal(str(item.price)) * item.quantity)]
+    rows = [[_item_label(item), str(item.quantity), money(item.price), money(Decimal(str(item.price)) * item.quantity)]
             for item in order.items]
     pdf.table(["Item", "Qty", "Price", "Amount"], rows, widths=[98, 20, 30, 30], align=["L", "C", "R", "R"])
     food = sum((Decimal(str(i.price)) * i.quantity for i in order.items), Decimal("0"))
@@ -296,7 +303,7 @@ def sales_rows(orders) -> List[list]:
         rows.append([
             when.strftime("%Y-%m-%d"), when.strftime("%H:%M"), short_ref(order.id), _status(order).replace("_", " "),
             f"{order.customer.name} {order.customer.sur_name}" if order.customer else "",
-            "; ".join(f"{i.quantity} x {i.name}" for i in order.items),
+            "; ".join(f"{i.quantity} x {_item_label(i)}" for i in order.items),
             f"{food:.2f}", f"{Decimal(str(order.delivery_fee or 0)):.2f}", f"{Decimal(str(order.total_amount)):.2f}",
             payment_method_label(order.payment_method), order.payment_status.replace("_", " "),
         ])

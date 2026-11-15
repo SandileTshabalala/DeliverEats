@@ -90,8 +90,15 @@ async def lifespan(app: FastAPI):
                     "closes_at VARCHAR(5)",
                     "vat_number VARCHAR(20)",
                     "phone VARCHAR(20)",
+                    "menu_sections JSON",
                 ):
                     connection.execute(text(f"ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS {column}"))
+                for table, column in (
+                    ("menu_items", "section VARCHAR(40)"),
+                    ("menu_items", "options JSON"),
+                    ("order_items", "options JSON"),
+                ):
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column}"))
                 for column in (
                     "ozow_enabled BOOLEAN NOT NULL DEFAULT FALSE",
                     "ozow_site_code VARCHAR",

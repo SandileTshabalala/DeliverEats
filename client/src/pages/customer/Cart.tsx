@@ -40,6 +40,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { StripePaymentForm } from '../../components/payment/StripePaymentForm';
 
+import { describePicks } from '../../utils/menu';
 const Cart = () => {
     const { items, restaurantId, updateQuantity, removeFromCart, totalPrice, clearCart } = useCart();
     const navigate = useNavigate();
@@ -64,13 +65,13 @@ const Cart = () => {
     const [submitting, setSubmitting] = useState(false);
     // One key per checkout. A changed basket or address is a new checkout.
     const checkoutKey = useRef(newId());
-    const basketSignature = JSON.stringify([items.map(i => [i.id, i.quantity]), selectedAddressId]);
+    const basketSignature = JSON.stringify([items.map(i => [i.key, i.quantity]), selectedAddressId]);
     useEffect(() => { checkoutKey.current = newId(); }, [basketSignature]);
 
     // Price from the server: food + this restaurant's delivery fee to the chosen address
     const [quote, setQuote] = useState<OrderQuote | null>(null);
     const [quoteError, setQuoteError] = useState<string>('');
-    const basketKey = items.map(i => `${i.id}x${i.quantity}`).join(',');
+    const basketKey = items.map(i => `${i.key}x${i.quantity}`).join(',');
 
     useEffect(() => {
         if (!restaurantId || items.length === 0) {
@@ -84,7 +85,7 @@ const Cart = () => {
                 const response = await api.post('/orders/quote', {
                     restaurant_id: restaurantId,
                     address_id: selectedAddressId || undefined,
-                    items: items.map(i => ({ menu_item_id: i.id, quantity: i.quantity })),
+                    items: items.map(i => ({ menu_item_id: i.id, quantity: i.quantity, options: i.choice_ids ?? [] })),
                 });
                 if (cancelled) return;
                 setQuote(response.data);
@@ -251,7 +252,7 @@ const Cart = () => {
             const orderResponse = await api.post('/orders/', {
                 restaurant_id: restaurantId,
                 address_id: selectedAddressId,
-                items: items.map(i => ({ menu_item_id: i.id, quantity: i.quantity })),
+                items: items.map(i => ({ menu_item_id: i.id, quantity: i.quantity, options: i.choice_ids ?? [] })),
             }, { headers: { 'Idempotency-Key': checkoutKey.current } });
             const orderId = orderResponse.data.id;
 
@@ -339,10 +340,10 @@ const Cart = () => {
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                key={item.id}
-                                className="bg-gray-900/50 border border-gray-800 rounded-[32px] p-6 flex items-center group transition-all"
+                                key={item.key}
+                                className="bg-gray-900/50 border border-gray-800 rounded-[32px] p-4 sm:p-6 flex items-start sm:items-center group transition-all"
                             >
-                                <div className="w-24 h-24 bg-gray-800 rounded-2xl overflow-hidden relative border border-gray-800 flex-shrink-0">
+                                <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gray-800 rounded-2xl overflow-hidden relative border border-gray-800 flex-shrink-0">
                                     {item.image_url ? (
                                         <img src={assetUrl(item.image_url)} alt={item.name} className="w-full h-full object-cover" />
                                     ) : (
@@ -351,31 +352,34 @@ const Cart = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div className="ml-6 flex-1 pr-4">
-                                    <div className="flex justify-between">
-                                        <h3 className="text-xl font-black uppercase tracking-tight italic group-hover:text-brand-500 transition-colors truncate pr-4">{item.name}</h3>
-                                        <p className="font-black text-white text-lg whitespace-nowrap">{formatRand(Number(item.price) * item.quantity)}</p>
+                                <div className="ml-4 sm:ml-6 flex-1 min-w-0">
+                                    <div className="flex justify-between items-start gap-3">
+                                        <h3 className="text-lg sm:text-xl font-black uppercase tracking-tight italic group-hover:text-brand-500 transition-colors min-w-0 break-words">{item.name}</h3>
+                                        <p className="font-black text-white text-base sm:text-lg whitespace-nowrap shrink-0">{formatRand(Number(item.price) * item.quantity)}</p>
                                     </div>
+                                    {item.picked && item.picked.length > 0 && (
+                                        <p className="text-sm text-gray-300 font-medium">{describePicks(item.picked)}</p>
+                                    )}
                                     <p className="text-gray-500 text-sm font-medium h-5 truncate mb-4">Each: {formatRand(item.price)}</p>
 
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center bg-gray-950 border border-gray-800 rounded-xl p-1">
                                             <button
-                                                onClick={() => updateQuantity(item.id, -1)}
+                                                onClick={() => updateQuantity(item.key, -1)}
                                                 className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
                                             >
                                                 <Minus size={14} />
                                             </button>
                                             <span className="w-10 text-center font-black">{item.quantity}</span>
                                             <button
-                                                onClick={() => updateQuantity(item.id, 1)}
+                                                onClick={() => updateQuantity(item.key, 1)}
                                                 className="p-2 hover:bg-gray-800 rounded-lg transition-colors text-gray-400 hover:text-white"
                                             >
                                                 <Plus size={14} />
                                             </button>
                                         </div>
                                         <button
-                                            onClick={() => removeFromCart(item.id)}
+                                            onClick={() => removeFromCart(item.key)}
                                             className="p-2 hover:bg-red-500/10 text-gray-600 hover:text-red-500 rounded-xl transition-all"
                                         >
                                             <Trash2 size={20} />

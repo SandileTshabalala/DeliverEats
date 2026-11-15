@@ -22,9 +22,8 @@ def _refresh_listings() -> None:
     """Restaurant cards show category names through a 60s cache: drop it."""
     try:
         from app.core.redis import redis_client
-        keys = list(redis_client.scan_iter("lvovo:restaurant*"))
-        if keys:
-            redis_client.delete(*keys)
+        keys = list(redis_client.scan_iter("lvovo:restaurant*")) + ["lvovo:categories:public"]
+        redis_client.delete(*keys)
     except Exception:
         pass
 
@@ -57,9 +56,20 @@ def _get(db: Session, category_id: str) -> Category:
 
 
 # ---------------------------------------------------------------- public
+PUBLIC_CACHE_KEY = "categories:public"  # stored as lvovo:categories:public
+
+
 @router.get("/categories")
-def public_categories(db: Session = Depends(get_db)) -> List[dict]:
-    return [cats.public(c) for c in cats.listed(db)]
+async def public_categories(db: Session = Depends(get_db)) -> List[dict]:
+    """Shown on every customer page and changes rarely: kept in the cache for 5 minutes."""
+    from starlette.concurrency import run_in_threadpool
+    from app.core.cache import get_cache, set_cache
+    cached = await get_cache(PUBLIC_CACHE_KEY)
+    if cached is not None:
+        return cached
+    result = await run_in_threadpool(lambda: [cats.public(c) for c in cats.listed(db)])
+    await set_cache(PUBLIC_CACHE_KEY, result, ttl=300)
+    return result
 
 
 # ---------------------------------------------------------------- platform owner
@@ -95,6 +105,7 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db), admi
     db.add(category)
     db.commit()
     db.refresh(category)
+    _refresh_listings()
     return _admin_view(category, {})
 
 
@@ -140,6 +151,7 @@ async def upload_category_image(
     db.commit()
     db.refresh(category)
     uploads.delete_uploaded(previous)
+    _refresh_listings()
     return _admin_view(category, cats.counts(db))
 
 
@@ -150,6 +162,7 @@ def remove_category_image(category_id: str, db: Session = Depends(get_db), admin
     category.image_url = None
     db.commit()
     db.refresh(category)
+    _refresh_listings()
     return _admin_view(category, cats.counts(db))
 
 

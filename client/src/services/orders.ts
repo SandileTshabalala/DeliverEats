@@ -54,7 +54,7 @@ export const formatPhone = (number?: string | null) => {
 export const phoneHref = (number?: string | null) => `tel:${(number ?? '').replace(/[^\d+]/g, '')}`;
 
 export const orderService = {
-    createOrder: async (data: { restaurant_id: string; address_id?: string; items: { menu_item_id: string; quantity: number }[] }): Promise<Order> => {
+    createOrder: async (data: { restaurant_id: string; address_id?: string; items: { menu_item_id: string; quantity: number; options?: string[] }[] }): Promise<Order> => {
         const res = await api.post("/orders/", data);
         return res.data;
     },

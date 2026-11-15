@@ -102,6 +102,8 @@ def public_dict(restaurant: Restaurant, rating: Optional[Tuple[float, int]] = No
         "accepting_orders": restaurant.accepting_orders is not False,
         "opens_at": restaurant.opens_at,
         "closes_at": restaurant.closes_at,
+        # order of the menu sections ("Mains", "Drinks"...) chosen by the restaurant
+        "menu_sections": restaurant.menu_sections or [],
         "rating": average,
         "review_count": count,
         **delivery,

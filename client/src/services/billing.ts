@@ -149,7 +149,17 @@ export const errorMessage = (error: any, fallback: string) => {
 };
 
 // ---- platform owner
+/** The subscription switch (Admin > Subscriptions) */
+export interface Enforcement {
+    enforced: boolean;
+    grace_days: number;
+    /** restaurants without a paid plan: hidden while the switch is on */
+    would_close: string[];
+}
+
 export const adminBilling = {
+    enforcement: async (): Promise<Enforcement> => (await api.get("/admin/billing/enforcement")).data,
+    setEnforcement: async (enforced: boolean): Promise<Enforcement> => (await api.put("/admin/billing/enforcement", { enforced })).data,
     plans: async (): Promise<Plan[]> => (await api.get("/admin/billing/plans")).data,
     createPlan: async (data: PlanInput): Promise<Plan> => (await api.post("/admin/billing/plans", data)).data,
     updatePlan: async (id: string, data: Partial<PlanInput>): Promise<Plan> => (await api.patch(`/admin/billing/plans/${id}`, data)).data,

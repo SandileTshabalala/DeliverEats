@@ -26,6 +26,8 @@ class RestaurantResponse(BaseModel):
     accepting_orders: bool = True
     opens_at: str | None = None
     closes_at: str | None = None
+    # order of the menu sections chosen by the restaurant
+    menu_sections: List[str] | None = None
     rating: float | None = None
     review_count: int = 0
     delivery_fee_from: Decimal | None = None

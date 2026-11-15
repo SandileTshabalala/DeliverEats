@@ -97,7 +97,7 @@ def admin_stats(db: Session = Depends(get_db), admin=Depends(admin_only)):
             "monthly_recurring": monthly_recurring.quantize(Decimal("0.01")),
         },
         "subscriptions": by_status,
-        "subscriptions_enforced": settings.SUBSCRIPTIONS_ENFORCED,
+        "subscriptions_enforced": subs.enforced(db),
     }
 
 
@@ -167,7 +167,7 @@ def admin_update_restaurant(
 # Platform configuration status (read-only: values come from the environment)
 # --------------------------------------------------------------------------
 @router.get("/admin/system")
-def admin_system(admin=Depends(admin_only)):
+def admin_system(db: Session = Depends(get_db), admin=Depends(admin_only)):
     """What is switched on. Never returns a key or secret, only whether it is set."""
     return {
         "environment": settings.ENV,
@@ -180,7 +180,7 @@ def admin_system(admin=Depends(admin_only)):
             "configured": subs.platform_payfast_credentials() is not None,
             "sandbox": settings.PAYFAST_SANDBOX,
         },
-        "subscriptions": {"enforced": settings.SUBSCRIPTIONS_ENFORCED, "grace_days": settings.SUBSCRIPTION_GRACE_DAYS},
+        "subscriptions": {"enforced": subs.enforced(db), "grace_days": settings.SUBSCRIPTION_GRACE_DAYS},
         "default_delivery_fee": settings.DELIVERY_FEE,
         "secrets_encryption_key_set": bool(settings.ENCRYPTION_KEY),
         "legal_contact_set": _legal_contact_set(),

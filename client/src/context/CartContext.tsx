@@ -1,18 +1,30 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import type { MenuItem } from '../services/restaurant';
+import { lineKey, pickedOptions, unitPrice, type PickedOption } from '../utils/menu';
 
-interface CartItem extends MenuItem {
+/**
+ * One line of the cart: a dish and the choices picked for it. `price` is the
+ * price of one INCLUDING the extras; `key` tells "Kota, hot" from "Kota, mild".
+ */
+export interface CartItem extends MenuItem {
     quantity: number;
+    key: string;
+    /** ids of the choices picked (sent to the server, which prices them) */
+    choice_ids?: string[];
+    /** the same picks, readable, for the cart screen */
+    picked?: PickedOption[];
 }
 
 interface CartContextType {
     items: CartItem[];
     /** The one restaurant this cart belongs to (an order goes to a single kitchen). */
     restaurantId: string | null;
-    addToCart: (item: MenuItem) => void;
-    removeFromCart: (itemId: string) => void;
-    updateQuantity: (itemId: string, delta: number) => void;
+    /** add `quantity` of a dish with the given choices (ids) */
+    addToCart: (item: MenuItem, choiceIds?: string[], quantity?: number) => void;
+    /** by line key (a dish without choices: its id) */
+    removeFromCart: (key: string) => void;
+    updateQuantity: (key: string, delta: number) => void;
     clearCart: () => void;
     totalPrice: number;
     totalItems: number;
@@ -33,7 +45,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             const savedCart = localStorage.getItem(STORAGE_KEY);
             const parsed = savedCart ? JSON.parse(savedCart) : [];
-            return Array.isArray(parsed) ? parsed : [];
+            // carts saved before choices existed have no line key
+            return Array.isArray(parsed) ? parsed.map((line: CartItem) => ({ ...line, key: line.key ?? line.id })) : [];
         } catch (e) {
             console.error("Failed to load cart", e);
             return [];
@@ -44,7 +57,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
     }, [items]);
 
-    const addToCart = useCallback((item: MenuItem) => {
+    const addToCart = useCallback((item: MenuItem, choiceIds: string[] = [], quantity = 1) => {
+        const line: CartItem = {
+            ...item,
+            key: lineKey(item.id, choiceIds),
+            choice_ids: choiceIds,
+            picked: pickedOptions(item.options, choiceIds),
+            price: unitPrice(item.price, item.options, choiceIds),
+            quantity: Math.min(50, Math.max(1, quantity)),
+        };
         // One order = one restaurant. Adding from a different restaurant starts
         // a new cart instead of silently mixing two kitchens (the order used to
         // be sent to whichever restaurant the first item came from).
@@ -56,26 +77,26 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (switching) {
             toast('Your cart was from another restaurant, so we started a new one.', { icon: '🛒' });
-            setItems([{ ...item, quantity: 1 }]);
+            setItems([line]);
             return;
         }
 
         setItems(prev => {
-            if (prev.some(i => i.id === item.id)) {
-                return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+            if (prev.some(i => i.key === line.key)) {
+                return prev.map(i => i.key === line.key ? { ...i, quantity: Math.min(50, i.quantity + line.quantity) } : i);
             }
-            return [...prev, { ...item, quantity: 1 }];
+            return [...prev, line];
         });
     }, [items]);
 
-    const removeFromCart = useCallback((itemId: string) => {
-        setItems(prev => prev.filter(i => i.id !== itemId));
+    const removeFromCart = useCallback((key: string) => {
+        setItems(prev => prev.filter(i => i.key !== key));
     }, []);
 
-    const updateQuantity = useCallback((itemId: string, delta: number) => {
+    const updateQuantity = useCallback((key: string, delta: number) => {
         setItems(prev =>
             prev.map(i => {
-                if (i.id === itemId) {
+                if (i.key === key) {
                     const newQty = Math.min(50, Math.max(0, i.quantity + delta));
                     return { ...i, quantity: newQty };
                 }
